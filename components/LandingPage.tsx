@@ -1,88 +1,59 @@
 import React, { useState } from 'react';
-import { LogIn, User, CheckSquare, Square, ArrowRight, BookOpen } from 'lucide-react';
+import { LogIn, User } from 'lucide-react';
+import { SpiritLoader } from './ui/SpiritLoader';
 
 interface LandingPageProps {
   onLogin: (mode: 'GUEST' | 'GOOGLE') => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
   const [animateOut, setAnimateOut] = useState(false);
 
   const handleLogin = (mode: 'GUEST' | 'GOOGLE') => {
-    if (!acceptedTerms) return;
     setAnimateOut(true);
-    setTimeout(() => onLogin(mode), 500); // Allow animation to play
+    setTimeout(() => onLogin(mode), 800); // Allow animation to play out
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#050608] transition-opacity duration-500 ${animateOut ? 'opacity-0' : 'opacity-100'}`}>
+    <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#050608] transition-opacity duration-1000 ${animateOut ? 'opacity-0' : 'opacity-100'}`}>
       
       {/* Background Ambience */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-blue-900/10 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-amber-900/5 blur-[120px] rounded-full pointer-events-none" />
-
-      {/* Logo Section */}
-      <div className="text-center mb-16 relative z-10 flex flex-col items-center animate-fade-in-up">
-        <div className="p-4 bg-blue-500/10 rounded-2xl mb-6 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
-          <BookOpen className="w-12 h-12 text-blue-400" />
-        </div>
-        <h1 className="text-5xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-teal-400 to-blue-400 font-serif tracking-tight mb-3">
-          Lumina
-        </h1>
-        <p className="text-gray-500 text-sm tracking-[0.2em] uppercase font-medium">
-          Scripture Study Assistant
-        </p>
-      </div>
-
-      {/* Buttons Container */}
-      <div className="w-full max-w-sm px-6 space-y-5 relative z-10">
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-blue-900/5 blur-[120px] rounded-full pointer-events-none" />
+      
+      {/* Main Interaction Area */}
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-[300px]">
         
-        {/* Google Button */}
-        <button
-          onClick={() => handleLogin('GOOGLE')}
-          disabled={!acceptedTerms}
-          className={`group relative w-full h-16 rounded-xl border transition-all duration-300 flex items-center justify-center gap-3 overflow-hidden
-            ${acceptedTerms 
-              ? 'border-blue-500/30 hover:border-blue-400 hover:shadow-[0_0_20px_rgba(59,130,246,0.2)] bg-blue-950/10 hover:bg-blue-900/20' 
-              : 'border-gray-800 opacity-50 cursor-not-allowed'
-            }`}
+        {/* The Light / Spirit Loader */}
+        <div 
+          onClick={() => setShowOptions(true)}
+          className={`cursor-pointer transition-all duration-700 ${showOptions ? 'scale-75 opacity-50 blur-sm' : 'scale-100 opacity-100 hover:scale-105'}`}
         >
-          <div className={`absolute left-0 w-1 h-full bg-blue-500 transition-all duration-300 ${acceptedTerms ? 'opacity-100' : 'opacity-0'}`} />
-          <LogIn className={`w-5 h-5 ${acceptedTerms ? 'text-blue-400' : 'text-gray-500'}`} />
-          <span className={`text-lg font-bold tracking-wide ${acceptedTerms ? 'text-white' : 'text-gray-500'}`}>
-            GOOGLE
-          </span>
-          {acceptedTerms && <ArrowRight className="w-4 h-4 text-blue-500 absolute right-6 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />}
-        </button>
-
-        {/* Guest Button */}
-        <button
-          onClick={() => handleLogin('GUEST')}
-          disabled={!acceptedTerms}
-          className={`group relative w-full h-16 rounded-xl border transition-all duration-300 flex items-center justify-center gap-3 overflow-hidden
-            ${acceptedTerms 
-              ? 'border-[#f2c46d]/30 hover:border-[#f2c46d] hover:shadow-[0_0_20px_rgba(242,196,109,0.15)] bg-amber-950/10 hover:bg-amber-900/20' 
-              : 'border-gray-800 opacity-50 cursor-not-allowed'
-            }`}
-        >
-          <div className={`absolute left-0 w-1 h-full bg-[#f2c46d] transition-all duration-300 ${acceptedTerms ? 'opacity-100' : 'opacity-0'}`} />
-          <User className={`w-5 h-5 ${acceptedTerms ? 'text-[#f2c46d]' : 'text-gray-500'}`} />
-          <span className={`text-lg font-bold tracking-wide ${acceptedTerms ? 'text-white' : 'text-gray-500'}`}>
-            GUEST
-          </span>
-        </button>
-
-      </div>
-
-      {/* Terms Checkbox */}
-      <div className="mt-10 flex items-center gap-3 cursor-pointer group select-none" onClick={() => setAcceptedTerms(!acceptedTerms)}>
-        <div className={`transition-colors duration-300 ${acceptedTerms ? 'text-teal-400' : 'text-gray-600 group-hover:text-gray-500'}`}>
-          {acceptedTerms ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
+          <SpiritLoader message="" color="#f2c46d" />
         </div>
-        <span className="text-xs md:text-sm text-gray-500 group-hover:text-gray-400 transition-colors">
-          I accept the <span className="text-teal-500/80 hover:text-teal-400 underline underline-offset-4">Terms & Conditions</span>
-        </span>
+
+        {/* Login Options - Reveal on Click */}
+        <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-6 transition-all duration-700 ${showOptions ? 'opacity-100 translate-y-20' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
+          
+          {/* Google Button */}
+          <button
+            onClick={() => handleLogin('GOOGLE')}
+            className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(255,255,255,0.1)] hover:scale-110 hover:shadow-[0_0_50px_rgba(255,255,255,0.3)] transition-all duration-300 group"
+            title="Continue with Google"
+          >
+            <span className="font-bold text-2xl text-black font-sans">G</span>
+          </button>
+
+          {/* Guest Button */}
+          <button
+            onClick={() => handleLogin('GUEST')}
+            className="w-16 h-16 bg-[#1a1d24] border border-gray-700 rounded-2xl flex items-center justify-center shadow-lg hover:scale-110 hover:border-gray-500 hover:bg-[#252830] transition-all duration-300 group"
+            title="Continue as Guest"
+          >
+            <User className="w-6 h-6 text-gray-300 group-hover:text-white transition-colors" />
+          </button>
+
+        </div>
       </div>
 
     </div>

@@ -3,48 +3,30 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // IMMEDIATE PATCH to prevent "Cannot set property fetch" errors
+      (function() {
+        try {
+          if (window.fetch) {
+            var d = Object.getOwnPropertyDescriptor(window, 'fetch');
+            // If it exists and is configurable, redefine it with a no-op setter
+            if (d && d.configurable) {
+              Object.defineProperty(window, 'fetch', {
+                get: function() { return d.value; },
+                set: function(v) { console.warn('Blocked attempt to overwrite fetch'); },
+                configurable: true
+              });
+            }
+          }
+        } catch(e) { console.warn('Failed to patch fetch:', e); }
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lumina Scripture Study</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-      body {
-        font-family: 'Inter', sans-serif;
-        background-color: #050608;
-        /* Deep Atmospheric Gradient */
-        background-image: 
-          radial-gradient(circle at 50% 0%, #1a1f2e 0%, transparent 70%),
-          radial-gradient(circle at 80% 20%, #1e1b15 0%, transparent 50%),
-          linear-gradient(180deg, #050608 0%, #080a0f 100%);
-        background-attachment: fixed;
-        color: #f5f7fb;
-        min-height: 100vh;
-      }
-      
-      /* Subtle glow animation for special elements */
-      @keyframes holy-glow {
-        0% { box-shadow: 0 0 5px rgba(242, 196, 109, 0.2); }
-        50% { box-shadow: 0 0 20px rgba(242, 196, 109, 0.4); }
-        100% { box-shadow: 0 0 5px rgba(242, 196, 109, 0.2); }
-      }
-      
-      .animate-holy-glow {
-        animation: holy-glow 3s infinite;
-      }
-    </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
-    "@google/genai": "https://esm.sh/@google/genai@^1.39.0"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
-</head>
+    <link rel="stylesheet" href="/index.css">
+  </head>
   <body>
     <div id="root"></div>
   <script type="module" src="/index.tsx"></script>

@@ -37,7 +37,7 @@ export const mockGoogleLogin = async (): Promise<{ uid: string, displayName: str
     return {
         uid: 'google-user-123',
         displayName: 'Demo User',
-        photoURL: 'https://lh3.googleusercontent.com/a/ACg8ocIq8d1-123456789=s96-c' // Generic placeholder mimicking Google URL
+        photoURL: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop' // Reliable mock profile image
     };
 };
 

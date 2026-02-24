@@ -1,12 +1,14 @@
 
-import React, { useState } from 'react';
-import { ChevronRight, ChevronLeft, Bookmark, Trash2, Sparkles, BookOpen } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Bookmark, Trash2, Sparkles, X } from 'lucide-react';
 import { StudyContent, SavedPrayer } from '../types';
 import { soundEngine } from '../utils/soundUtils';
 
 interface SidebarProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
+  width: number;
+  setWidth: (width: number) => void;
   favorites: StudyContent[];
   savedPrayers?: SavedPrayer[];
   onSelect: (study: StudyContent) => void;
@@ -17,6 +19,8 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   setIsOpen,
+  width,
+  setWidth,
   favorites,
   savedPrayers = [],
   onSelect,
@@ -24,16 +28,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onRemovePrayer
 }) => {
   const [activeTab, setActiveTab] = useState<'verses' | 'prayers'>('verses');
+  const [isResizing, setIsResizing] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
   const handleTabChange = (tab: 'verses' | 'prayers') => {
     soundEngine.playClick();
     setActiveTab(tab);
   };
 
-  const handleToggle = () => {
-    soundEngine.playClick();
-    setIsOpen(!isOpen);
-  };
+  // Resize Logic
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      
+      let newWidth = e.clientX;
+      if (newWidth < 240) newWidth = 240; // Min width
+      if (newWidth > 600) newWidth = 600; // Max width
+      
+      setWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.body.style.cursor = 'default';
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, setWidth]);
 
   return (
     <>
@@ -47,16 +77,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Sidebar Container */}
       <div 
+        ref={sidebarRef}
         className={`fixed top-0 left-0 h-full z-50 bg-[#050608]/95 backdrop-blur-xl border-r border-gray-800 shadow-2xl transition-all duration-300 ease-in-out ${
-          isOpen ? 'w-80 translate-x-0' : 'w-0 -translate-x-full opacity-0'
+          isOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'
         }`}
+        style={{ width: isOpen ? (window.innerWidth < 768 ? '100%' : `${width}px`) : '0px' }}
       >
-        <div className="flex flex-col h-full w-80"> 
+        <div className="flex flex-col h-full w-full relative"> 
           {/* Header */}
           <div className="h-16 flex items-center justify-between px-6 border-b border-gray-800 bg-[#0A0C10]/50">
             <div className="flex items-center gap-2 font-bold text-gray-200">
               <span className="text-xl tracking-tight">My Library</span>
             </div>
+            <button 
+              onClick={() => setIsOpen(false)}
+              className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              title="Close Sidebar"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
           {/* Tabs */}
@@ -182,20 +221,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="p-4 border-t border-gray-800 text-[10px] text-gray-600 text-center">
             Lumina Personal Library
           </div>
+
+          {/* Resize Handle */}
+          <div 
+            className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500/50 transition-colors z-50"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsResizing(true);
+            }}
+          />
         </div>
       </div>
-
-      {/* Toggle Button (Chevron) - Fixed to the side of the sidebar */}
-      <button
-        onClick={handleToggle}
-        onMouseEnter={() => soundEngine.playHover()}
-        className={`fixed top-24 z-50 flex items-center justify-center w-8 h-10 bg-[#0A0C10] border-y border-r border-gray-800 rounded-r-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-blue-500/20 ${
-          isOpen ? 'left-80' : 'left-0'
-        }`}
-        title={isOpen ? "Close Saved Items" : "Open Saved Items"}
-      >
-        {isOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-      </button>
     </>
   );
 };

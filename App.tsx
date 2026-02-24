@@ -44,11 +44,16 @@ const App: React.FC = () => {
   
   // UI State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(320);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [activeTab, setActiveTab] = useState<QuickNavTab>('discoveries');
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   // Check for existing session on mount
   useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    
     const savedMode = localStorage.getItem('lumina_auth_mode') as UserMode;
     const savedUid = localStorage.getItem('lumina_auth_uid');
     const savedName = localStorage.getItem('lumina_auth_name');
@@ -69,6 +74,7 @@ const App: React.FC = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     return () => {
+      window.removeEventListener('resize', handleResize);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
@@ -267,12 +273,18 @@ const App: React.FC = () => {
       <ParticleBackground />
       
       <div className="relative z-10 flex flex-col min-h-screen">
-        <Header onHomeClick={clearAll} />
+        <Header 
+          onHomeClick={clearAll} 
+          isSidebarOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        />
         
         {/* Sidebar for Favorites & Prayers */}
         <Sidebar 
           isOpen={isSidebarOpen}
           setIsOpen={setIsSidebarOpen}
+          width={sidebarWidth}
+          setWidth={setSidebarWidth}
           favorites={favorites}
           savedPrayers={savedPrayers}
           onSelect={handleHistorySelect}
@@ -293,7 +305,10 @@ const App: React.FC = () => {
           </div>
         )}
         
-        <main className={`flex-grow px-4 py-8 md:py-12 w-full max-w-5xl mx-auto transition-all duration-300 ${isSidebarOpen ? 'md:pl-80' : ''}`}>
+        <main 
+          className="flex-grow px-4 py-8 md:py-12 w-full max-w-5xl mx-auto transition-all duration-300"
+          style={{ paddingLeft: isSidebarOpen && windowWidth >= 768 ? `${sidebarWidth}px` : undefined }}
+        >
           
           {!studyContent && !searchResults && (
             <div className="text-center mb-10 space-y-3 animate-fade-in">
@@ -415,7 +430,10 @@ const App: React.FC = () => {
         {/* Helper Assistant */}
         <PageAssistant studyContent={studyContent} />
 
-        <footer className={`py-8 border-t border-gray-900/50 mt-auto text-center text-gray-600 text-sm transition-all duration-300 relative z-10 backdrop-blur-sm ${isSidebarOpen ? 'md:pl-80' : ''}`}>
+        <footer 
+          className="py-8 border-t border-gray-900/50 mt-auto text-center text-gray-600 text-sm transition-all duration-300 relative z-10 backdrop-blur-sm"
+          style={{ paddingLeft: isSidebarOpen && windowWidth >= 768 ? `${sidebarWidth}px` : undefined }}
+        >
           <p>&copy; {new Date().getFullYear()} Lumina Scripture Study. All rights reserved.</p>
         </footer>
       </div>
