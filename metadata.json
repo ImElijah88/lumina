@@ -1,0 +1,7 @@
+{
+  "name": "Lumina Scripture Study",
+  "description": "An AI-powered Bible study assistant providing historical context, meaning, and practical application for scripture passages.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

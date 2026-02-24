@@ -1,0 +1,185 @@
+
+import React, { useState } from 'react';
+import { ChevronRight, ChevronLeft, Bookmark, Trash2, Sparkles, BookOpen } from 'lucide-react';
+import { StudyContent, SavedPrayer } from '../types';
+
+interface SidebarProps {
+  isOpen: boolean;
+  setIsOpen: (isOpen: boolean) => void;
+  favorites: StudyContent[];
+  savedPrayers?: SavedPrayer[];
+  onSelect: (study: StudyContent) => void;
+  onRemoveFavorite: (study: StudyContent, e: React.MouseEvent) => void;
+  onRemovePrayer?: (id: string, e: React.MouseEvent) => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({
+  isOpen,
+  setIsOpen,
+  favorites,
+  savedPrayers = [],
+  onSelect,
+  onRemoveFavorite,
+  onRemovePrayer
+}) => {
+  const [activeTab, setActiveTab] = useState<'verses' | 'prayers'>('verses');
+
+  return (
+    <>
+      {/* Overlay for mobile (closes sidebar when clicked) */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden animate-fade-in"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* Sidebar Container */}
+      <div 
+        className={`fixed top-0 left-0 h-full z-50 bg-[#050608] border-r border-gray-800 shadow-2xl transition-all duration-300 ease-in-out ${
+          isOpen ? 'w-80 translate-x-0' : 'w-0 -translate-x-full opacity-0'
+        }`}
+      >
+        <div className="flex flex-col h-full w-80"> 
+          {/* Header */}
+          <div className="h-16 flex items-center justify-between px-6 border-b border-gray-800 bg-[#0A0C10]">
+            <div className="flex items-center gap-2 font-bold text-gray-200">
+              <span className="text-xl">My Library</span>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex border-b border-gray-800">
+             <button 
+               onClick={() => setActiveTab('verses')}
+               className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 
+                 ${activeTab === 'verses' ? 'border-yellow-500 text-yellow-500 bg-yellow-500/5' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+             >
+                Verses
+             </button>
+             <button 
+               onClick={() => setActiveTab('prayers')}
+               className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 
+                 ${activeTab === 'prayers' ? 'border-rose-500 text-rose-500 bg-rose-500/5' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+             >
+                Prayers
+             </button>
+          </div>
+
+          {/* List Content */}
+          <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-gray-800">
+            
+            {/* VERSES TAB */}
+            {activeTab === 'verses' && (
+              <>
+                {favorites.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-48 text-gray-500 text-center px-4">
+                    <Bookmark className="w-8 h-8 mb-3 opacity-20" />
+                    <p className="text-sm">No saved verses yet.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {favorites.map((fav, idx) => (
+                      <div 
+                        key={`${fav.verseReference}-${idx}`}
+                        onClick={() => {
+                          onSelect(fav);
+                          if (window.innerWidth < 768) setIsOpen(false); // Close on mobile selection
+                        }}
+                        className="group relative flex flex-col p-3 bg-gray-900/30 border border-gray-800/50 rounded-lg hover:bg-gray-800 hover:border-blue-500/30 transition-all cursor-pointer"
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-[#f2c46d] font-serif font-medium text-sm group-hover:text-[#ffe4a0] transition-colors">
+                            {fav.verseReference}
+                          </span>
+                          <button
+                            onClick={(e) => onRemoveFavorite(fav, e)}
+                            className="p-1.5 text-gray-600 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            title="Remove from Saved"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {fav.comparison && (
+                          <span className="text-[10px] text-teal-500 mb-1">vs {fav.comparison.secondReference}</span>
+                        )}
+                        <p className="text-xs text-gray-400 line-clamp-2">
+                          {fav.keyMeaning}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* PRAYERS TAB */}
+            {activeTab === 'prayers' && (
+              <>
+                {savedPrayers.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-48 text-gray-500 text-center px-4">
+                    <Sparkles className="w-8 h-8 mb-3 opacity-20" />
+                    <p className="text-sm">No saved prayers yet.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {savedPrayers.map((prayer) => (
+                      <div 
+                        key={prayer.id}
+                        className="group relative flex flex-col p-3 bg-rose-950/10 border border-rose-900/20 rounded-lg hover:bg-rose-950/20 hover:border-rose-500/30 transition-all"
+                      >
+                         <div className="flex justify-between items-start mb-1">
+                            <div className="flex flex-col">
+                               <span className="text-rose-200 font-bold text-xs">Prayer of {prayer.character}</span>
+                               <span className="text-[10px] text-rose-400/70">{prayer.scenario}</span>
+                            </div>
+                            <button
+                                onClick={(e) => onRemovePrayer && onRemovePrayer(prayer.id, e)}
+                                className="p-1.5 text-gray-600 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                title="Delete Prayer"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                         </div>
+                         <div className="mt-2 pt-2 border-t border-rose-900/20">
+                            <p className="text-[10px] text-gray-400 italic line-clamp-2">"{prayer.content.text}"</p>
+                         </div>
+                         <button 
+                           onClick={() => {
+                             const text = `Prayer of ${prayer.character}\n\n${prayer.content.text}\n\nAffirmation: ${prayer.content.affirmation}`;
+                             navigator.clipboard.writeText(text);
+                             alert("Prayer copied to clipboard!");
+                           }}
+                           className="mt-2 text-[10px] text-gray-500 hover:text-rose-400 transition-colors text-left"
+                         >
+                            Click to Copy Full Prayer
+                         </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+          </div>
+          
+          {/* Footer branding */}
+          <div className="p-4 border-t border-gray-800 text-[10px] text-gray-600 text-center">
+            Lumina Personal Library
+          </div>
+        </div>
+      </div>
+
+      {/* Toggle Button (Chevron) - Fixed to the side of the sidebar */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`fixed top-24 z-50 flex items-center justify-center w-8 h-10 bg-[#0A0C10] border-y border-r border-gray-800 rounded-r-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-all duration-300 shadow-lg ${
+          isOpen ? 'left-80' : 'left-0'
+        }`}
+        title={isOpen ? "Close Saved Items" : "Open Saved Items"}
+      >
+        {isOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+      </button>
+    </>
+  );
+};
