@@ -5,7 +5,10 @@ import { Card } from './ui/Card';
 import { BiblicalCard } from './ui/BiblicalCard';
 import { generateBiblicalArt, generateExternalArtPrompt, generateScript, generateSpeech, getPassageContext } from '../services/geminiService';
 import { audioController } from '../utils/audioUtils';
-import { Scroll, History, Lightbulb, HeartHandshake, Languages, Scale, ArrowRightLeft, Merge, Quote, Link as LinkIcon, ArrowRight, Share2, Check, CloudDownload, Copy, MessageCircle, ImageIcon, Loader2, Compass, Wand2, X, Bookmark, FileText, Clapperboard, Volume2, StopCircle, BookOpen, ScrollText } from 'lucide-react';
+import { soundEngine } from '../utils/soundUtils';
+import { Scroll, History, Lightbulb, HeartHandshake, Languages, Scale, ArrowRightLeft, Merge, Quote, Link as LinkIcon, ArrowRight, Share2, Check, CloudDownload, Copy, MessageCircle, ImageIcon, Loader2, Compass, Wand2, X, Bookmark, FileText, Clapperboard, Volume2, StopCircle, BookOpen, ScrollText, Sparkles } from 'lucide-react';
+
+import { ResultNav, ResultTab } from './ResultNav';
 
 interface StudyResultProps {
   content: StudyContent;
@@ -20,6 +23,7 @@ export const StudyResult: React.FC<StudyResultProps> = ({
   isFavorited = false,
   onToggleFavorite
 }) => {
+  const [activeTab, setActiveTab] = useState<ResultTab>('analysis');
   const [copied, setCopied] = useState(false);
   const [kjvCopied, setKjvCopied] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
@@ -81,6 +85,7 @@ export const StudyResult: React.FC<StudyResultProps> = ({
   }, []);
 
   const handleShare = async () => {
+    soundEngine.playClick();
     const shareText = `Study: ${content.verseReference || 'Scripture Analysis'}
 ${content.kjvText ? `\n"${content.kjvText}"\n` : ''}
 Simplified: ${content.simplifiedText || ''}
@@ -109,6 +114,7 @@ Meaning: ${content.keyMeaning}
   };
 
   const handleCopyKjv = async () => {
+    soundEngine.playClick();
     if (content.kjvText) {
       try {
         const textToCopy = `"${content.kjvText}"\n- ${content.verseReference} (KJV)`;
@@ -122,6 +128,7 @@ Meaning: ${content.keyMeaning}
   };
 
   const handleCopyPrompt = async () => {
+    soundEngine.playClick();
     if (externalPrompt) {
       try {
         await navigator.clipboard.writeText(externalPrompt);
@@ -134,6 +141,7 @@ Meaning: ${content.keyMeaning}
   };
 
   const handleCopyScript = async () => {
+    soundEngine.playClick();
     if (scriptContent) {
       try {
         await navigator.clipboard.writeText(scriptContent);
@@ -146,6 +154,7 @@ Meaning: ${content.keyMeaning}
   };
 
   const handleCopyContext = async (text: string, key: string) => {
+    soundEngine.playClick();
     try {
       await navigator.clipboard.writeText(text);
       setCopiedContextKey(key);
@@ -156,25 +165,33 @@ Meaning: ${content.keyMeaning}
   };
 
   const handleGenerateCard = async () => {
+    soundEngine.playClick();
     if (!content.verseReference) return;
     setIsGeneratingCard(true);
+    soundEngine.playProcessingStart();
     const context = content.simplifiedText || content.keyMeaning || content.explanation;
     setTimeout(() => {
         const el = document.getElementById('biblical-card-section');
         if (el) el.scrollIntoView({ behavior: 'smooth' });
     }, 100);
     const image = await generateBiblicalArt(content.verseReference, context);
-    if (image) setCardImage(image);
+    if (image) {
+        setCardImage(image);
+        soundEngine.playCelestialChord();
+    }
     setIsGeneratingCard(false);
   };
 
   const handleGeneratePrompt = async () => {
+    soundEngine.playClick();
     if (!content.verseReference) return;
     setIsGeneratingPrompt(true);
+    soundEngine.playProcessingStart();
     const context = content.simplifiedText || content.keyMeaning || content.explanation;
     try {
       const prompt = await generateExternalArtPrompt(content.verseReference, context);
       setExternalPrompt(prompt);
+      soundEngine.playCelestialChord();
       setTimeout(() => {
         const el = document.getElementById('external-prompt-section');
         if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -187,12 +204,15 @@ Meaning: ${content.keyMeaning}
   }
 
   const handleGenerateScript = async () => {
+    soundEngine.playClick();
     if (!content.verseReference) return;
     setIsGeneratingScript(true);
+    soundEngine.playProcessingStart();
     const context = content.simplifiedText || content.keyMeaning || content.explanation;
     try {
         const script = await generateScript(content.verseReference, context);
         setScriptContent(script);
+        soundEngine.playCelestialChord();
         setTimeout(() => {
             const el = document.getElementById('script-section');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -205,6 +225,7 @@ Meaning: ${content.keyMeaning}
   }
 
   const handlePlayAudio = async () => {
+    soundEngine.playClick();
     if (isPlaying) {
       audioController.stop();
       setIsPlaying(false);
@@ -234,6 +255,7 @@ Meaning: ${content.keyMeaning}
   };
 
   const handleShowContext = async () => {
+    soundEngine.playClick();
     if (showContext) {
       setShowContext(false);
       return;
@@ -273,7 +295,11 @@ Meaning: ${content.keyMeaning}
         <div className="flex items-center gap-2">
            {onToggleFavorite && (
             <button
-              onClick={() => onToggleFavorite(content)}
+              onClick={() => {
+                soundEngine.playClick();
+                onToggleFavorite(content);
+              }}
+              onMouseEnter={() => soundEngine.playHover()}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all text-xs font-medium backdrop-blur-sm
                 ${isFavorited 
                   ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/20' 
@@ -287,6 +313,7 @@ Meaning: ${content.keyMeaning}
 
             <button
               onClick={handleShare}
+              onMouseEnter={() => soundEngine.playHover()}
               className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-800/30 border border-gray-700/50 text-gray-400 hover:text-blue-400 hover:bg-gray-800/80 hover:border-blue-500/30 transition-all text-xs font-medium backdrop-blur-sm"
             >
               {copied ? (
@@ -314,10 +341,16 @@ Meaning: ${content.keyMeaning}
         </div>
       )}
 
-      {/* KJV Text Section */}
-      {content.kjvText && (
+      {/* Result Navigation */}
+      <ResultNav activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {/* ANALYSIS TAB */}
+      {activeTab === 'analysis' && (
+        <div className="animate-fade-in space-y-6 md:space-y-8">
+          {/* KJV Text Section */}
+          {content.kjvText && (
         <div className="animate-fade-in-up delay-100">
-          <div className="relative bg-[#0A0C10] border border-[#f2c46d]/20 rounded-xl p-6 md:p-8 text-center overflow-hidden group hover:border-[#f2c46d]/40 transition-colors duration-500">
+          <div className="relative bg-[#0A0C10] border border-[#f2c46d]/20 rounded-xl p-6 md:p-8 text-center overflow-hidden group hover:border-[#f2c46d]/40 transition-colors duration-500 hover:shadow-lg hover:shadow-[#f2c46d]/5">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#f2c46d]/40 to-transparent" />
             <Quote className="w-8 h-8 md:w-10 md:h-10 text-[#f2c46d]/10 absolute top-4 left-4" />
             <Quote className="w-8 h-8 md:w-10 md:h-10 text-[#f2c46d]/10 absolute bottom-4 right-4 rotate-180" />
@@ -327,6 +360,7 @@ Meaning: ${content.keyMeaning}
                <button
                  onClick={handleShowContext}
                  disabled={isLoadingContext}
+                 onMouseEnter={() => soundEngine.playHover()}
                  className={`p-2 rounded-full transition-all duration-300 ${showContext ? 'text-teal-400 bg-teal-900/20' : 'text-[#f2c46d]/40 hover:text-teal-400 hover:bg-teal-900/10'}`}
                  title="View Surrounding Context"
                >
@@ -337,6 +371,7 @@ Meaning: ${content.keyMeaning}
                <button
                  onClick={handlePlayAudio}
                  disabled={isLoadingAudio}
+                 onMouseEnter={() => soundEngine.playHover()}
                  className={`p-2 rounded-full transition-all duration-300 ${isPlaying ? 'text-pink-400 bg-pink-900/20' : 'text-[#f2c46d]/40 hover:text-pink-400 hover:bg-pink-900/10'}`}
                  title={isPlaying ? "Stop Reading" : "Listen to Verse"}
                >
@@ -352,6 +387,7 @@ Meaning: ${content.keyMeaning}
                {/* Copy Button */}
                <button
                  onClick={handleCopyKjv}
+                 onMouseEnter={() => soundEngine.playHover()}
                  className="p-2 rounded-full text-[#f2c46d]/40 hover:text-[#f2c46d] hover:bg-[#f2c46d]/10 transition-all duration-300"
                  title="Copy Verse"
                >
@@ -383,6 +419,7 @@ Meaning: ${content.keyMeaning}
                      </p>
                      <button
                         onClick={() => handleCopyContext(passageContext.narrative, 'narrative')}
+                        onMouseEnter={() => soundEngine.playHover()}
                         className="absolute right-0 top-0 p-1.5 text-gray-500 hover:text-teal-400 transition-colors"
                         title="Copy narrative"
                      >
@@ -392,7 +429,7 @@ Meaning: ${content.keyMeaning}
 
                    {/* Historical Analysis (New) */}
                    {passageContext.historicalAnalysis && (
-                     <div className="bg-teal-950/10 border border-teal-900/30 rounded-lg p-4 relative group">
+                     <div className="bg-teal-950/10 border border-teal-900/30 rounded-lg p-4 relative group hover:bg-teal-950/20 transition-colors">
                         <div className="flex items-center gap-2 mb-2">
                            <History className="w-3.5 h-3.5 text-teal-500" />
                            <span className="text-[10px] text-teal-500 font-bold uppercase">Historical & Verification Context</span>
@@ -400,6 +437,7 @@ Meaning: ${content.keyMeaning}
                         <p className="text-gray-300 leading-relaxed pr-6">{passageContext.historicalAnalysis}</p>
                         <button
                            onClick={() => handleCopyContext(passageContext.historicalAnalysis, 'history')}
+                           onMouseEnter={() => soundEngine.playHover()}
                            className="absolute right-2 top-2 p-1.5 text-gray-600 hover:text-teal-400 transition-colors"
                            title="Copy historical analysis"
                         >
@@ -414,6 +452,7 @@ Meaning: ${content.keyMeaning}
                          <div className="text-[10px] text-teal-500 font-bold uppercase">{passageContext.before.reference}</div>
                          <button
                            onClick={() => handleCopyContext(passageContext.before.text, 'before')}
+                           onMouseEnter={() => soundEngine.playHover()}
                            className="p-1 text-gray-600 hover:text-teal-400 transition-colors"
                            title="Copy verse"
                          >
@@ -436,6 +475,7 @@ Meaning: ${content.keyMeaning}
                          <div className="text-[10px] text-teal-500 font-bold uppercase">{passageContext.after.reference}</div>
                          <button
                            onClick={() => handleCopyContext(passageContext.after.text, 'after')}
+                           onMouseEnter={() => soundEngine.playHover()}
                            className="p-1 text-gray-600 hover:text-teal-400 transition-colors"
                            title="Copy verse"
                          >
@@ -459,7 +499,7 @@ Meaning: ${content.keyMeaning}
             <Card
               title="Modern Simplified Version"
               icon={<MessageCircle className="w-5 h-5 text-indigo-400" />}
-              className="border-indigo-900/30 bg-gradient-to-br from-[#0A0C10] to-indigo-900/10"
+              className="border-indigo-900/30 bg-gradient-to-br from-[#0A0C10] to-indigo-900/10 hover:shadow-indigo-900/10 hover:shadow-lg transition-all"
               copyText={content.simplifiedText}
             >
               <p className="text-gray-100 text-lg leading-relaxed font-medium">
@@ -469,122 +509,8 @@ Meaning: ${content.keyMeaning}
           </div>
         )}
 
-        {/* CREATIVE TOOLS SECTION */}
-        <div className="md:col-span-2 space-y-6 py-6 border-y border-gray-900/50 bg-[#0A0C10]/30 -mx-4 px-4 sm:mx-0 sm:rounded-2xl sm:border sm:bg-transparent">
-           
-           <div className="flex items-center gap-3 mb-2">
-             <Wand2 className="w-5 h-5 text-purple-400" />
-             <h3 className="text-lg font-semibold text-gray-200">Creative Suite</h3>
-           </div>
-
-           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              
-              {/* Tool 1: Character Card Generator */}
-              <div id="biblical-card-section" className="flex flex-col items-center">
-                {!cardImage ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center p-6 border border-gray-800 rounded-xl bg-[#0A0C10] hover:border-yellow-500/30 transition-all">
-                    <p className="text-sm text-gray-400 mb-4 text-center">Generate a collectible card for this verse.</p>
-                    <button
-                      onClick={handleGenerateCard}
-                      disabled={isGeneratingCard}
-                      className="w-full inline-flex items-center justify-center p-0.5 overflow-hidden text-sm font-medium rounded-lg group bg-gradient-to-br from-yellow-500 to-orange-400 hover:text-white dark:text-white focus:ring-4 focus:outline-none focus:ring-yellow-200 dark:focus:ring-yellow-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <span className="w-full relative px-5 py-2.5 transition-all ease-in duration-75 bg-[#0A0C10] rounded-md group-hover:bg-opacity-0 flex items-center justify-center gap-2">
-                        {isGeneratingCard ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImageIcon className="w-5 h-5" />}
-                        {isGeneratingCard ? 'Crafting...' : 'Create Card'}
-                      </span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="w-full animate-fade-in-up">
-                    <BiblicalCard 
-                        image={cardImage} 
-                        title={content.verseReference || "Scripture Card"}
-                        verse={content.simplifiedText || content.kjvText || ""}
-                        label="Modern Simplified"
-                        onClose={() => setCardImage(null)}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Tool 2: External Art Prompt Generator */}
-              <div id="external-prompt-section" className="flex flex-col items-center">
-                 {!externalPrompt ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center p-6 border border-gray-800 rounded-xl bg-[#0A0C10] hover:border-purple-500/30 transition-all">
-                      <p className="text-sm text-gray-400 mb-4 text-center">Create a detailed prompt for Midjourney/DALL-E.</p>
-                      <button
-                        onClick={handleGeneratePrompt}
-                        disabled={isGeneratingPrompt}
-                        className="w-full inline-flex items-center justify-center p-0.5 overflow-hidden text-sm font-medium rounded-lg group bg-gradient-to-br from-purple-500 to-blue-500 hover:text-white dark:text-white focus:ring-4 focus:outline-none focus:ring-purple-200 dark:focus:ring-purple-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <span className="w-full relative px-5 py-2.5 transition-all ease-in duration-75 bg-[#0A0C10] rounded-md group-hover:bg-opacity-0 flex items-center justify-center gap-2">
-                          {isGeneratingPrompt ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wand2 className="w-5 h-5" />}
-                          {isGeneratingPrompt ? 'Designing...' : 'Scene Prompt'}
-                        </span>
-                      </button>
-                    </div>
-                 ) : (
-                    <div className="w-full animate-fade-in-up h-full flex flex-col">
-                       <div className="relative bg-[#0A0C10] border border-purple-500/30 rounded-xl p-4 flex-grow flex flex-col">
-                          <div className="flex items-center justify-between mb-2">
-                             <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Midjourney Prompt</span>
-                             <button onClick={() => setExternalPrompt(null)} className="text-gray-500 hover:text-white"><X className="w-4 h-4" /></button>
-                          </div>
-                          <div className="flex-grow bg-black/50 rounded-lg p-3 border border-gray-800 mb-3 overflow-y-auto max-h-[200px] scrollbar-thin">
-                             <p className="text-xs text-gray-300 font-mono leading-relaxed">{externalPrompt}</p>
-                          </div>
-                          <button
-                            onClick={handleCopyPrompt}
-                            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-medium transition-colors"
-                          >
-                            {promptCopied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
-                            {promptCopied ? "Copied" : "Copy Prompt"}
-                          </button>
-                       </div>
-                    </div>
-                 )}
-              </div>
-
-              {/* Tool 3: Screenplay Generator */}
-              <div id="script-section" className="flex flex-col items-center">
-                 {!scriptContent ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center p-6 border border-gray-800 rounded-xl bg-[#0A0C10] hover:border-red-500/30 transition-all">
-                      <p className="text-sm text-gray-400 mb-4 text-center">Write a professional scene script for this passage.</p>
-                      <button
-                        onClick={handleGenerateScript}
-                        disabled={isGeneratingScript}
-                        className="w-full inline-flex items-center justify-center p-0.5 overflow-hidden text-sm font-medium rounded-lg group bg-gradient-to-br from-red-500 to-orange-500 hover:text-white dark:text-white focus:ring-4 focus:outline-none focus:ring-red-200 dark:focus:ring-red-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <span className="w-full relative px-5 py-2.5 transition-all ease-in duration-75 bg-[#0A0C10] rounded-md group-hover:bg-opacity-0 flex items-center justify-center gap-2">
-                          {isGeneratingScript ? <Loader2 className="w-5 h-5 animate-spin" /> : <Clapperboard className="w-5 h-5" />}
-                          {isGeneratingScript ? 'Writing...' : 'Write Script'}
-                        </span>
-                      </button>
-                    </div>
-                 ) : (
-                    <div className="w-full animate-fade-in-up h-full flex flex-col">
-                       <div className="relative bg-[#0A0C10] border border-red-500/30 rounded-xl p-4 flex-grow flex flex-col">
-                          <div className="flex items-center justify-between mb-2">
-                             <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Screenplay</span>
-                             <button onClick={() => setScriptContent(null)} className="text-gray-500 hover:text-white"><X className="w-4 h-4" /></button>
-                          </div>
-                          <div className="flex-grow bg-[#fffceb] text-black rounded-lg p-4 border border-gray-800 mb-3 overflow-y-auto max-h-[300px] scrollbar-thin shadow-inner">
-                             <pre className="text-xs font-mono leading-relaxed whitespace-pre-wrap font-courier">{scriptContent}</pre>
-                          </div>
-                          <button
-                            onClick={handleCopyScript}
-                            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-medium transition-colors"
-                          >
-                            {scriptCopied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
-                            {scriptCopied ? "Copied" : "Copy Script"}
-                          </button>
-                       </div>
-                    </div>
-                 )}
-              </div>
-           </div>
-        </div>
+        {/* CREATIVE TOOLS SECTION - MOVED TO TAB */}
+        {/* Removed from here to be placed in its own tab */}
 
         {/* Explanation */}
         <div className="md:col-span-2">
@@ -697,73 +623,210 @@ Meaning: ${content.keyMeaning}
             <p className="text-gray-300 font-medium">{content.practicalApplication}</p>
           </Card>
         </div>
+      </div>
+    </div>
+  )}
 
-        {/* RELATED VERSES SECTION */}
-        {content.relatedVerses && content.relatedVerses.length > 0 && (
-          <div className="md:col-span-2">
-            <div className="mt-8 border-t border-gray-800 pt-8">
-              <div className="flex items-center gap-3 mb-6">
-                <LinkIcon className="w-5 h-5 text-blue-400" />
-                <h3 className="text-lg font-semibold text-gray-200">Direct Cross-References</h3>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                {content.relatedVerses.map((item, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => onNavigate(item.reference)}
-                    className="group flex flex-col items-start p-4 bg-[#0A0C10] border border-gray-800 rounded-xl hover:border-blue-500/40 hover:bg-gray-800/30 transition-all text-left h-full"
-                  >
-                    <div className="flex items-center justify-between w-full mb-2">
-                      <span className="font-bold text-[#f2c46d] text-sm group-hover:text-blue-300 transition-colors">
-                        {item.reference}
-                      </span>
-                      <ArrowRight className="w-3 h-3 text-gray-600 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
-                    </div>
-                    <span className="text-xs text-gray-500 leading-relaxed">
-                      {item.context}
+      {/* CROSS-REFERENCES TAB */}
+      {activeTab === 'cross_refs' && (
+        <div className="animate-fade-in space-y-6">
+          <div className="flex items-center gap-3 mb-4">
+            <LinkIcon className="w-5 h-5 text-blue-400" />
+            <h3 className="text-lg font-semibold text-gray-200">Direct Cross-References</h3>
+          </div>
+          
+          {content.relatedVerses && content.relatedVerses.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              {content.relatedVerses.map((verse, idx) => (
+                <div 
+                  key={idx}
+                  onClick={() => onNavigate(verse.reference)}
+                  className="p-4 rounded-xl bg-[#0A0C10] border border-gray-800 hover:border-blue-500/30 hover:bg-blue-900/5 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-blue-400 font-bold text-sm group-hover:text-blue-300 transition-colors">
+                      {verse.reference}
                     </span>
+                    <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-blue-400 transition-colors" />
+                  </div>
+                  <p className="text-gray-400 text-sm leading-relaxed">
+                    {verse.context}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500 bg-[#0A0C10]/50 rounded-xl border border-gray-800/50">
+              <LinkIcon className="w-8 h-8 mx-auto mb-3 opacity-20" />
+              <p>No direct cross-references found for this passage.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* CONNECTIONS TAB */}
+      {activeTab === 'connections' && (
+        <div className="animate-fade-in space-y-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Compass className="w-5 h-5 text-teal-400" />
+            <h3 className="text-lg font-semibold text-gray-200">Thematic & Broader Connections</h3>
+          </div>
+          
+          {content.similarVerses && content.similarVerses.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              {content.similarVerses.map((verse, idx) => (
+                <div 
+                  key={idx}
+                  onClick={() => onNavigate(verse.reference)}
+                  className="p-4 rounded-xl bg-[#0A0C10] border border-gray-800 hover:border-teal-500/30 hover:bg-teal-900/5 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-teal-400 font-bold text-sm group-hover:text-teal-300 transition-colors">
+                      {verse.reference}
+                    </span>
+                    <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-teal-400 transition-colors" />
+                  </div>
+                  <p className="text-gray-400 text-sm leading-relaxed">
+                    {verse.context}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500 bg-[#0A0C10]/50 rounded-xl border border-gray-800/50">
+              <Compass className="w-8 h-8 mx-auto mb-3 opacity-20" />
+              <p>No thematic connections found for this passage.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* CREATIVE SUITE TAB */}
+      {activeTab === 'creative' && (
+        <div className="animate-fade-in space-y-8">
+           
+           <div className="flex items-center gap-3 mb-2">
+             <Wand2 className="w-5 h-5 text-purple-400" />
+             <h3 className="text-lg font-semibold text-gray-200">Creative Suite</h3>
+           </div>
+
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 1. Biblical Card Generator */}
+            <div id="biblical-card-section" className="md:col-span-2 bg-[#0A0C10] border border-gray-800 rounded-2xl p-6 md:p-8 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <ImageIcon className="w-24 h-24 text-purple-500" />
+              </div>
+              
+              <div className="relative z-10">
+                <h4 className="text-xl font-bold text-gray-200 mb-2 flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5 text-purple-400" />
+                  Biblical Card Generator
+                </h4>
+                <p className="text-gray-400 text-sm mb-6 max-w-lg">
+                  Create a beautiful, shareable card with this verse and a cinematic AI-generated background.
+                </p>
+
+                {!cardImage ? (
+                  <button
+                    onClick={handleGenerateCard}
+                    disabled={isGeneratingCard}
+                    className="flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-purple-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isGeneratingCard ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wand2 className="w-5 h-5" />}
+                    <span>Generate Card</span>
                   </button>
-                ))}
+                ) : (
+                  <div className="mt-8 animate-fade-in-up w-full flex justify-center">
+                    <BiblicalCard 
+                      image={cardImage}
+                      title={content.verseReference || 'Scripture'}
+                      verse={content.simplifiedText || content.kjvText || ''}
+                      onClose={() => setCardImage(null)}
+                    />
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        )}
 
-        {/* SIMILAR VERSES SECTION */}
-        {content.similarVerses && content.similarVerses.length > 0 && (
-          <div className="md:col-span-2">
-            <div className="mt-2 pt-4">
-              <div className="flex items-center gap-3 mb-6">
-                <Compass className="w-5 h-5 text-teal-400" />
-                <h3 className="text-lg font-semibold text-gray-200">Thematic & Broader Connections</h3>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {content.similarVerses.map((item, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => onNavigate(item.reference)}
-                    className="group flex flex-col items-start p-4 bg-gradient-to-r from-[#0A0C10] to-teal-900/10 border border-teal-900/30 rounded-xl hover:border-teal-500/40 hover:to-teal-900/20 transition-all text-left h-full"
-                  >
-                    <div className="flex items-center justify-between w-full mb-2">
-                      <span className="font-bold text-teal-100 text-sm group-hover:text-teal-300 transition-colors">
-                        {item.reference}
-                      </span>
-                      <ArrowRight className="w-3 h-3 text-teal-700 group-hover:text-teal-400 group-hover:translate-x-1 transition-all" />
-                    </div>
-                    <span className="text-xs text-gray-400 leading-relaxed group-hover:text-gray-300 transition-colors">
-                      {item.context}
-                    </span>
-                  </button>
-                ))}
-              </div>
+            {/* 2. External Art Prompt */}
+            <div id="external-prompt-section" className="bg-[#0A0C10] border border-gray-800 rounded-2xl p-6 relative overflow-hidden group hover:border-gray-700 transition-colors">
+               <h4 className="text-lg font-bold text-gray-200 mb-2 flex items-center gap-2">
+                  <Clapperboard className="w-4 h-4 text-pink-400" />
+                  Midjourney Prompt
+               </h4>
+               <p className="text-gray-500 text-xs mb-4">
+                 Get a highly detailed prompt optimized for external AI art generators.
+               </p>
+               
+               {!externalPrompt ? (
+                 <button
+                    onClick={handleGeneratePrompt}
+                    disabled={isGeneratingPrompt}
+                    className="w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm font-medium rounded-lg transition-colors flex justify-center items-center gap-2"
+                 >
+                    {isGeneratingPrompt ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    Generate Prompt
+                 </button>
+               ) : (
+                 <div className="bg-black/50 rounded-lg p-3 border border-gray-800 animate-fade-in">
+                    <p className="text-xs text-gray-400 font-mono leading-relaxed max-h-32 overflow-y-auto mb-3 custom-scrollbar">
+                      {externalPrompt}
+                    </p>
+                    <button
+                      onClick={handleCopyPrompt}
+                      className="w-full py-2 bg-pink-900/20 hover:bg-pink-900/30 text-pink-400 text-xs font-medium rounded transition-colors flex justify-center items-center gap-2"
+                    >
+                      {promptCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      {promptCopied ? 'Copied' : 'Copy Prompt'}
+                    </button>
+                 </div>
+               )}
             </div>
-          </div>
-        )}
-      </div>
 
-      <div className="text-center mt-12 text-xs text-gray-600 border-t border-gray-900 pt-6">
-        AI-generated content. Always verify with Scripture.
-      </div>
+            {/* 3. Screenplay Script */}
+            <div id="script-section" className="bg-[#0A0C10] border border-gray-800 rounded-2xl p-6 relative overflow-hidden group hover:border-gray-700 transition-colors">
+               <h4 className="text-lg font-bold text-gray-200 mb-2 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-blue-400" />
+                  Screenplay Adaptation
+               </h4>
+               <p className="text-gray-500 text-xs mb-4">
+                 Convert this passage into a dramatic screenplay format for video production.
+               </p>
+               
+               {!scriptContent ? (
+                 <button
+                    onClick={handleGenerateScript}
+                    disabled={isGeneratingScript}
+                    className="w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm font-medium rounded-lg transition-colors flex justify-center items-center gap-2"
+                 >
+                    {isGeneratingScript ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScrollText className="w-4 h-4" />}
+                    Generate Script
+                 </button>
+               ) : (
+                 <div className="bg-black/50 rounded-lg p-4 border border-gray-800 animate-fade-in">
+                    <div className="max-h-60 overflow-y-auto mb-4 custom-scrollbar pr-2">
+                      <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap leading-relaxed">
+                        {scriptContent}
+                      </pre>
+                    </div>
+                    <button
+                      onClick={handleCopyScript}
+                      className="w-full py-2 bg-blue-900/20 hover:bg-blue-900/30 text-blue-400 text-xs font-medium rounded transition-colors flex justify-center items-center gap-2"
+                    >
+                      {scriptCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      {scriptCopied ? 'Copied' : 'Copy Script'}
+                    </button>
+                 </div>
+               )}
+            </div>
+
+           </div>
+
+          <div className="text-center mt-12 text-xs text-gray-600 border-t border-gray-900 pt-6">
+            AI-generated content. Always verify with Scripture.
+          </div>
+        </div>
+      )}
     </div>
   );
 };

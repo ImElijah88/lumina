@@ -4,7 +4,7 @@ import { Search, Sparkles, Scale, X, ScrollText, Mic, MicOff, Loader2 } from 'lu
 import { Button } from './ui/Button';
 import { AutocompleteInput } from './ui/AutocompleteInput';
 import { interpretVoiceQuery } from '../services/geminiService';
-import { SUGGESTED_PROMPTS } from '../utils/bibleSuggestions';
+import { soundEngine } from '../utils/soundUtils';
 
 interface StudyInputProps {
   onAnalyze: (query: string, comparisonQuery?: string, includeKJV?: boolean) => void;
@@ -96,6 +96,7 @@ export const StudyInput: React.FC<StudyInputProps> = ({ onAnalyze, isLoading }) 
   };
 
   const toggleListening = () => {
+    soundEngine.playClick();
     if (isProcessingVoice) return;
     
     if (!recognitionRef.current) {
@@ -120,11 +121,13 @@ export const StudyInput: React.FC<StudyInputProps> = ({ onAnalyze, isLoading }) 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
+      soundEngine.playProcessingStart();
       onAnalyze(query, showComparison ? comparisonQuery : undefined, includeKJV);
     }
   };
 
   const toggleComparison = () => {
+    soundEngine.playClick();
     if (showComparison) {
       setComparisonQuery(''); // Clear when hiding
     }
@@ -135,53 +138,53 @@ export const StudyInput: React.FC<StudyInputProps> = ({ onAnalyze, isLoading }) 
   const handleQuerySelect = (val: string) => setQuery(val);
   const handleComparisonSelect = (val: string) => setComparisonQuery(val);
 
-  const handlePromptClick = (promptQuery: string) => {
-    setQuery(promptQuery);
-  };
-
   return (
     <div className="w-full max-w-3xl mx-auto mb-8 animate-fade-in-up">
       <form onSubmit={handleSubmit} className="relative space-y-4">
         
         {/* Main Input with Autocomplete */}
-        <div className="relative">
-          <AutocompleteInput
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onSuggestionSelect={handleQuerySelect}
-            placeholder={isListening ? "Listening..." : isProcessingVoice ? "Clarifying your thought..." : "Enter a verse, topic, or click the mic..."}
-            disabled={isLoading || isListening || isProcessingVoice}
-            icon={<Search className="h-5 w-5 text-gray-500 group-focus-within:text-blue-400 transition-colors" />}
-            wrapperClassName="w-full"
-            className="block w-full pr-14 py-4 bg-[#0A0C10] border border-gray-800 rounded-xl 
-                     text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50
-                     transition-all duration-300 shadow-lg shadow-black/50"
-          />
-          
-          {/* Microphone Button */}
-          {recognitionRef.current && (
-            <button
-              type="button"
-              onClick={toggleListening}
-              disabled={isLoading || isProcessingVoice}
-              className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-300 ${
-                isListening 
-                  ? 'bg-red-500/20 text-red-400 animate-pulse' 
-                  : isProcessingVoice 
-                    ? 'bg-blue-500/10 text-blue-400'
-                    : 'text-gray-500 hover:text-blue-400 hover:bg-gray-800'
-              }`}
-              title="Dictate Query"
-            >
-              {isProcessingVoice ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : isListening ? (
-                <MicOff className="w-5 h-5" />
-              ) : (
-                <Mic className="w-5 h-5" />
-              )}
-            </button>
-          )}
+        <div className="relative group">
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-teal-500 rounded-xl opacity-20 group-hover:opacity-40 transition duration-500 blur"></div>
+          <div className="relative">
+            <AutocompleteInput
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onSuggestionSelect={handleQuerySelect}
+              placeholder={isListening ? "Listening..." : isProcessingVoice ? "Clarifying your thought..." : "Enter a verse, topic, or click the mic..."}
+              disabled={isLoading || isListening || isProcessingVoice}
+              icon={<Search className="h-5 w-5 text-gray-500 group-focus-within:text-blue-400 transition-colors" />}
+              wrapperClassName="w-full"
+              className="block w-full pr-14 py-4 bg-[#0A0C10] border border-gray-800 rounded-xl 
+                       text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50
+                       transition-all duration-300 shadow-lg shadow-black/50"
+            />
+            
+            {/* Microphone Button */}
+            {recognitionRef.current && (
+              <button
+                type="button"
+                onClick={toggleListening}
+                onMouseEnter={() => soundEngine.playHover()}
+                disabled={isLoading || isProcessingVoice}
+                className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-300 ${
+                  isListening 
+                    ? 'bg-red-500/20 text-red-400 animate-pulse' 
+                    : isProcessingVoice 
+                      ? 'bg-blue-500/10 text-blue-400'
+                      : 'text-gray-500 hover:text-blue-400 hover:bg-gray-800'
+                }`}
+                title="Dictate Query"
+              >
+                {isProcessingVoice ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : isListening ? (
+                  <MicOff className="w-5 h-5" />
+                ) : (
+                  <Mic className="w-5 h-5" />
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Comparison Input (Conditional) */}
@@ -201,24 +204,7 @@ export const StudyInput: React.FC<StudyInputProps> = ({ onAnalyze, isLoading }) 
           </div>
         )}
 
-        {/* Suggested Prompts */}
-        {!query && !isListening && (
-          <div className="mt-4">
-            <p className="text-xs text-gray-500 uppercase tracking-widest mb-2 font-semibold">Suggested Topics</p>
-            <div className="flex flex-wrap gap-2">
-              {SUGGESTED_PROMPTS.map((prompt, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handlePromptClick(prompt.query)}
-                  className="px-3 py-1.5 rounded-full bg-gray-800/50 border border-gray-700/50 text-xs text-gray-400 hover:bg-gray-700 hover:text-gray-200 hover:border-gray-600 transition-all duration-200"
-                >
-                  {prompt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+
         
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           
@@ -227,6 +213,7 @@ export const StudyInput: React.FC<StudyInputProps> = ({ onAnalyze, isLoading }) 
             <button
               type="button"
               onClick={toggleComparison}
+              onMouseEnter={() => soundEngine.playHover()}
               className={`text-sm font-medium flex items-center gap-2 transition-colors ${
                 showComparison ? 'text-teal-400 hover:text-teal-300' : 'text-gray-500 hover:text-gray-300'
               }`}
@@ -246,7 +233,11 @@ export const StudyInput: React.FC<StudyInputProps> = ({ onAnalyze, isLoading }) 
             {/* KJV Toggle */}
             <button
               type="button"
-              onClick={() => setIncludeKJV(!includeKJV)}
+              onClick={() => {
+                soundEngine.playClick();
+                setIncludeKJV(!includeKJV);
+              }}
+              onMouseEnter={() => soundEngine.playHover()}
               className={`text-sm font-medium flex items-center gap-2 transition-all px-3 py-1.5 rounded-full border ${
                 includeKJV 
                   ? 'bg-[#f2c46d]/10 text-[#f2c46d] border-[#f2c46d]/30 hover:bg-[#f2c46d]/20' 
@@ -263,7 +254,8 @@ export const StudyInput: React.FC<StudyInputProps> = ({ onAnalyze, isLoading }) 
             type="submit" 
             isLoading={isLoading} 
             disabled={!query.trim() || (showComparison && !comparisonQuery.trim())}
-            className="w-full md:w-auto"
+            className="w-full md:w-auto hover:scale-105 transition-transform duration-200"
+            onMouseEnter={() => !isLoading && soundEngine.playHover()}
           >
             {!isLoading && <Sparkles className="w-4 h-4 mr-2" />}
             {isLoading ? 'Analyzing...' : showComparison ? 'Compare Passages' : 'Study Passage'}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getBibleSuggestions } from '../../utils/bibleSuggestions';
+import { soundEngine } from '../../utils/soundUtils';
 
 interface AutocompleteInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   value: string;
@@ -60,11 +61,13 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
+      soundEngine.playHover();
       setHighlightedIndex(prev => 
         prev < suggestions.length - 1 ? prev + 1 : prev
       );
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
+      soundEngine.playHover();
       setHighlightedIndex(prev => prev > 0 ? prev - 1 : -1);
     } else if (e.key === 'Enter') {
       if (highlightedIndex >= 0 && suggestions[highlightedIndex]) {
@@ -77,6 +80,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   };
 
   const handleSelect = (suggestion: string) => {
+    soundEngine.playClick();
     onSuggestionSelect(suggestion);
     setShowSuggestions(false);
     setHighlightedIndex(-1);
@@ -111,6 +115,10 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
             <li
               key={suggestion}
               onClick={() => handleSelect(suggestion)}
+              onMouseEnter={() => {
+                soundEngine.playHover();
+                setHighlightedIndex(index);
+              }}
               className={`px-4 py-3 cursor-pointer text-sm transition-colors duration-150 border-b border-gray-800/50 last:border-0
                 ${index === highlightedIndex 
                   ? 'bg-blue-900/20 text-blue-300 border-l-2 border-l-blue-500 pl-[14px]' 

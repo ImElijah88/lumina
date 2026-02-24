@@ -14,7 +14,10 @@ import { Sidebar } from './components/Sidebar';
 import { UserProfileMenu } from './components/UserProfileMenu';
 import { PageAssistant } from './components/PageAssistant';
 import { DailyInsight } from './components/DailyInsight';
+import { SuggestedTopics } from './components/SuggestedTopics';
+import { QuickNav, QuickNavTab } from './components/QuickNav';
 import { ParticleBackground } from './components/ui/ParticleBackground';
+import { SpiritLoader } from './components/ui/SpiritLoader';
 import { analyzePassage, searchScripture } from './services/geminiService';
 import { mockGoogleLogin } from './services/firebaseService';
 import { StudyContent, LoadingState, SearchResultItem, SavedPrayer } from './types';
@@ -42,6 +45,7 @@ const App: React.FC = () => {
   // UI State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [activeTab, setActiveTab] = useState<QuickNavTab>('discoveries');
 
   // Check for existing session on mount
   useEffect(() => {
@@ -314,36 +318,39 @@ const App: React.FC = () => {
                   <DailyInsight onSelect={(q) => handleInitialInput(q)} isLoading={loadingState === LoadingState.ANALYZING} />
               )}
               
-              {/* Story Selector */}
+              {/* Quick Presets Navbar */}
               {loadingState === LoadingState.IDLE && (
-                <StorySelector onSelect={(q) => handleInitialInput(q)} isLoading={loadingState === LoadingState.ANALYZING} />
-              )}
-              
-              {/* Prayer Generator (New) */}
-              {loadingState === LoadingState.IDLE && (
-                <PrayerGenerator onSave={handleSavePrayer} isLoading={loadingState === LoadingState.ANALYZING} />
-              )}
-
-              {loadingState === LoadingState.IDLE && (
-                <QuickStartGems onSelect={(q) => handleInitialInput(q)} />
-              )}
-
-              {loadingState === LoadingState.IDLE && (
-                <MoodSelector onSelectMood={(mood) => handleInitialInput(mood)} />
+                <>
+                  <QuickNav activeTab={activeTab} onTabChange={setActiveTab} />
+                  
+                  <div className="min-h-[400px]">
+                    {activeTab === 'narrative' && (
+                      <StorySelector onSelect={(q) => handleInitialInput(q)} isLoading={loadingState === LoadingState.ANALYZING} />
+                    )}
+                    {activeTab === 'topics' && (
+                      <SuggestedTopics onSelect={(q) => handleInitialInput(q)} />
+                    )}
+                    {activeTab === 'mood' && (
+                      <MoodSelector onSelectMood={(mood) => handleInitialInput(mood)} />
+                    )}
+                    {activeTab === 'discoveries' && (
+                      <QuickStartGems onSelect={(q) => handleInitialInput(q)} />
+                    )}
+                    {activeTab === 'prayer' && (
+                      <PrayerGenerator onSave={handleSavePrayer} isLoading={loadingState === LoadingState.ANALYZING} />
+                    )}
+                  </div>
+                </>
               )}
             </>
           )}
 
           {loadingState === LoadingState.SEARCHING && (
-            <div className="text-center py-20 animate-pulse">
-              <p className="text-blue-400 font-medium">Searching Scriptures...</p>
-            </div>
+            <SpiritLoader message="Searching Scriptures..." color="#60a5fa" />
           )}
 
           {loadingState === LoadingState.ANALYZING && (
-            <div className="text-center py-20 animate-pulse">
-              <p className="text-teal-400 font-medium">Analyzing Meaning & Context...</p>
-            </div>
+            <SpiritLoader message="Analyzing Meaning & Context..." color="#2dd4bf" />
           )}
 
           {loadingState === LoadingState.ERROR && (

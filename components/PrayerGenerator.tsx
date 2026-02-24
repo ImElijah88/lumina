@@ -44,6 +44,7 @@ export const PrayerGenerator: React.FC<PrayerGeneratorProps> = ({ onSave, isLoad
   const handleGenerate = async () => {
     if (isGenerating || globalLoading) return;
     
+    soundEngine.playClick();
     setIsGenerating(true);
     setPrayer(null);
     setIsSaved(false);
@@ -76,6 +77,7 @@ export const PrayerGenerator: React.FC<PrayerGeneratorProps> = ({ onSave, isLoad
   };
 
   const handleCopyFull = async () => {
+    soundEngine.playClick();
     if (!prayer) return;
     const text = `${prayer.content.text}\n\n"${prayer.content.affirmation}"`;
     
@@ -86,6 +88,7 @@ export const PrayerGenerator: React.FC<PrayerGeneratorProps> = ({ onSave, isLoad
   };
 
   const handleSave = () => {
+    soundEngine.playClick();
     if (!prayer) return;
     onSave(prayer);
     setIsSaved(true);
@@ -105,6 +108,7 @@ export const PrayerGenerator: React.FC<PrayerGeneratorProps> = ({ onSave, isLoad
          {!prayer && !isGenerating && (
              <button
                onClick={handleGenerate}
+               onMouseEnter={() => soundEngine.playHover()}
                className="group relative inline-flex items-center justify-center gap-3 px-8 py-4 bg-[#0A0C10] border border-rose-500/30 rounded-2xl hover:bg-rose-950/10 hover:border-rose-500/60 transition-all duration-300 shadow-lg hover:shadow-rose-900/20 active:scale-95"
              >
                 <div className="absolute inset-0 bg-gradient-to-r from-rose-500/5 via-purple-500/5 to-rose-500/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
@@ -174,6 +178,7 @@ export const PrayerGenerator: React.FC<PrayerGeneratorProps> = ({ onSave, isLoad
               <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
                  <button 
                    onClick={handleGenerate}
+                   onMouseEnter={() => soundEngine.playHover()}
                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 text-sm transition-colors whitespace-nowrap"
                  >
                     <Sparkles className="w-4 h-4" /> New Prayer
@@ -181,6 +186,7 @@ export const PrayerGenerator: React.FC<PrayerGeneratorProps> = ({ onSave, isLoad
                  
                  <button 
                    onClick={handleCopyFull}
+                   onMouseEnter={() => soundEngine.playHover()}
                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 text-sm transition-colors whitespace-nowrap"
                  >
                     {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -190,6 +196,7 @@ export const PrayerGenerator: React.FC<PrayerGeneratorProps> = ({ onSave, isLoad
                  <button 
                    onClick={handleSave}
                    disabled={isSaved}
+                   onMouseEnter={() => soundEngine.playHover()}
                    className={`w-full md:w-auto flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-sm font-bold transition-all
                      ${isSaved ? 'bg-green-900/20 text-green-400 border border-green-900/50' : 'bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_15px_rgba(225,29,72,0.3)] hover:shadow-[0_0_25px_rgba(225,29,72,0.5)]'}`}
                  >

@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
 import { Download, X, Loader2 } from 'lucide-react';
-import html2canvas from 'html2canvas';
 
 interface BiblicalCardProps {
   image: string;
@@ -25,6 +24,9 @@ export const BiblicalCard: React.FC<BiblicalCardProps> = ({
     setIsDownloading(true);
 
     try {
+      // Lazy load html-to-image to avoid side effects during initial app load
+      const { toPng } = await import('html-to-image');
+
       // 1. Force image pre-loading to ensure it renders in canvas
       // Data URIs usually load instantly, but this ensures the browser has decoded it
       await new Promise((resolve) => {
@@ -38,24 +40,14 @@ export const BiblicalCard: React.FC<BiblicalCardProps> = ({
         }
       });
 
-      // 2. Capture
-      const canvas = await html2canvas(cardRef.current, {
-        scale: 2, // Slightly reduced scale to improve performance/success rate
-        useCORS: true, // Critical for cross-origin or data-uri handling in some contexts
-        allowTaint: false, // CRITICAL: Must be false to allow toDataURL export
+      // 2. Capture & Convert
+      const dataUrl = await toPng(cardRef.current, {
+        cacheBust: true,
         backgroundColor: '#050608',
-        logging: false,
-        onclone: (clonedDoc) => {
-            // Optional: Adjust styles in clone if needed, e.g. removing shadows that render poorly
-            const clonedElement = clonedDoc.querySelector('[data-card-root]') as HTMLElement;
-            if (clonedElement) {
-                clonedElement.style.transform = 'none'; // Clear transforms during capture
-            }
-        }
+        pixelRatio: 2, // Improve quality
       });
 
-      // 3. Convert and Download
-      const dataUrl = canvas.toDataURL('image/png');
+      // 3. Download
       const link = document.createElement('a');
       link.download = `lumina-card-${title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.png`;
       link.href = dataUrl;

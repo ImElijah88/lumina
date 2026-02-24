@@ -8,10 +8,10 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onHomeClick }) => {
   return (
     <header className="sticky top-0 z-50 bg-[#050608]/80 backdrop-blur-md border-b border-gray-800/50">
-      <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
         <button 
           onClick={onHomeClick}
-          className="flex items-center gap-2 hover:opacity-80 transition-opacity focus:outline-none group"
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity focus:outline-none group cursor-pointer"
           title="Return to Search"
         >
           <div className="p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">

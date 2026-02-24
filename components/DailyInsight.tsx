@@ -20,6 +20,7 @@ export const DailyInsight: React.FC<DailyInsightProps> = ({ onSelect, isLoading 
   const year = todayDate.getFullYear();
 
   const handleReveal = async () => {
+    soundEngine.playClick();
     setIsRevealing(true);
     soundEngine.playProcessingStart(); // Swoosh sound
     
@@ -49,7 +50,7 @@ export const DailyInsight: React.FC<DailyInsightProps> = ({ onSelect, isLoading 
 
   return (
     <div className="w-full max-w-3xl mx-auto mb-8 animate-fade-in-up">
-      <div className="relative overflow-hidden rounded-2xl border border-gray-800 bg-gradient-to-r from-[#0d1017] to-[#0A0C10] shadow-2xl group animate-holy-glow">
+      <div className="relative overflow-hidden rounded-2xl border border-gray-800 bg-gradient-to-r from-[#0d1017] to-[#0A0C10] shadow-2xl group animate-holy-glow hover:shadow-teal-900/20 hover:scale-[1.01] transition-all duration-500">
         
         {/* Decorative Background Glow */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/5 blur-[80px] rounded-full pointer-events-none transition-opacity group-hover:bg-teal-500/10"></div>
@@ -57,7 +58,7 @@ export const DailyInsight: React.FC<DailyInsightProps> = ({ onSelect, isLoading 
         <div className="flex flex-col md:flex-row items-stretch">
             
             {/* Calendar Section */}
-            <div className="flex-shrink-0 w-full md:w-32 bg-gray-900/50 border-b md:border-b-0 md:border-r border-gray-800 p-6 flex flex-col items-center justify-center text-center">
+            <div className="flex-shrink-0 w-full md:w-32 bg-gray-900/50 border-b md:border-b-0 md:border-r border-gray-800 p-6 flex flex-col items-center justify-center text-center group-hover:bg-gray-900/70 transition-colors duration-300">
                 <span className="text-xs font-bold text-red-400 uppercase tracking-widest mb-1">{monthName}</span>
                 <span className="text-4xl font-serif font-bold text-gray-100">{dayNumber}</span>
                 <span className="text-xs text-gray-500 mt-1">{dayName}</span>
@@ -67,11 +68,11 @@ export const DailyInsight: React.FC<DailyInsightProps> = ({ onSelect, isLoading 
             {/* Content Section */}
             <div className="flex-grow p-6 flex flex-col justify-center items-start relative">
                 <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="w-4 h-4 text-teal-400" />
+                    <Sparkles className="w-4 h-4 text-teal-400 animate-pulse" />
                     <h3 className="text-sm font-bold text-teal-100 uppercase tracking-wide">Verse of the Day</h3>
                 </div>
                 
-                <p className="text-gray-400 text-sm mb-6 max-w-lg leading-relaxed">
+                <p className="text-gray-400 text-sm mb-6 max-w-lg leading-relaxed group-hover:text-gray-300 transition-colors duration-300">
                     Discover a passage chosen for this specific day in history. Unveil its meaning, context, and practical application for your life today.
                 </p>
 
@@ -79,7 +80,7 @@ export const DailyInsight: React.FC<DailyInsightProps> = ({ onSelect, isLoading 
                     onClick={handleReveal}
                     disabled={isLoading || isRevealing}
                     onMouseEnter={() => soundEngine.playHover()}
-                    className="group/btn relative inline-flex items-center gap-2 px-6 py-2.5 bg-teal-900/20 text-teal-400 border border-teal-500/30 rounded-lg hover:bg-teal-500/20 hover:border-teal-400/50 hover:text-teal-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="group/btn relative inline-flex items-center gap-2 px-6 py-2.5 bg-teal-900/20 text-teal-400 border border-teal-500/30 rounded-lg hover:bg-teal-500/20 hover:border-teal-400/50 hover:text-teal-300 hover:shadow-lg hover:shadow-teal-500/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {isRevealing || isLoading ? (
                         <>
