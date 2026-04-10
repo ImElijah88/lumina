@@ -1,18 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
-import { StudyContent, PassageContext } from '../types';
+import { StudyContent, PassageContext, BibleVersion, SavedPrayer } from '../types';
 import { Card } from './ui/Card';
 import { BiblicalCard } from './ui/BiblicalCard';
-import { generateBiblicalArt, generateExternalArtPrompt, generateScript, generateSpeech, getPassageContext } from '../services/geminiService';
+import { generateBiblicalArt, generateExternalArtPrompt, generateScript, generateSpeech, getPassageContext, generateSpiritualPrayer } from '../services/geminiService';
 import { audioController } from '../utils/audioUtils';
 import { soundEngine } from '../utils/soundUtils';
-import { Scroll, History, Lightbulb, HeartHandshake, Languages, Scale, ArrowRightLeft, Merge, Quote, Link as LinkIcon, ArrowRight, Share2, Check, CloudDownload, Copy, MessageCircle, ImageIcon, Loader2, Compass, Wand2, X, Bookmark, FileText, Clapperboard, Volume2, StopCircle, BookOpen, ScrollText, Sparkles } from 'lucide-react';
+import { Scroll, History, Lightbulb, HeartHandshake, Languages, Scale, ArrowRightLeft, Merge, Quote, Link as LinkIcon, ArrowRight, Share2, Check, CloudDownload, Copy, MessageCircle, ImageIcon, Loader2, Compass, Wand2, X, Bookmark, FileText, Clapperboard, Volume2, StopCircle, BookOpen, ScrollText, Sparkles, HandHeart } from 'lucide-react';
 
 import { ResultNav, ResultTab } from './ResultNav';
 
 interface StudyResultProps {
   content: StudyContent;
-  onNavigate: (query: string) => void;
+  onNavigate: (query: string, comparisonQuery?: string, version?: BibleVersion, comparisonVersion?: BibleVersion) => void;
   isFavorited?: boolean;
   onToggleFavorite?: (content: StudyContent) => void;
 }
@@ -28,6 +28,7 @@ export const StudyResult: React.FC<StudyResultProps> = ({
   const [kjvCopied, setKjvCopied] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
+  const [prayerCopied, setPrayerCopied] = useState(false);
   
   // Context Copy States
   const [copiedContextKey, setCopiedContextKey] = useState<string | null>(null);
@@ -41,6 +42,9 @@ export const StudyResult: React.FC<StudyResultProps> = ({
 
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [scriptContent, setScriptContent] = useState<string | null>(null);
+
+  const [isGeneratingPrayer, setIsGeneratingPrayer] = useState(false);
+  const [generatedPrayer, setGeneratedPrayer] = useState<SavedPrayer | null>(null);
 
   // Audio / TTS State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -56,12 +60,14 @@ export const StudyResult: React.FC<StudyResultProps> = ({
     setCardImage(null);
     setExternalPrompt(null);
     setScriptContent(null);
+    setGeneratedPrayer(null);
     setPassageContext(null);
     setShowContext(false);
     
     setIsGeneratingCard(false);
     setIsGeneratingPrompt(false);
     setIsGeneratingScript(false);
+    setIsGeneratingPrayer(false);
     setIsLoadingContext(false);
     
     // Stop audio if playing
@@ -74,8 +80,20 @@ export const StudyResult: React.FC<StudyResultProps> = ({
     setKjvCopied(false);
     setPromptCopied(false);
     setScriptCopied(false);
+    setPrayerCopied(false);
     setCopiedContextKey(null);
   }, [content]);
+
+  useEffect(() => {
+    const handleChangeTab = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        setActiveTab(customEvent.detail);
+      }
+    };
+    window.addEventListener('change-result-tab', handleChangeTab);
+    return () => window.removeEventListener('change-result-tab', handleChangeTab);
+  }, []);
 
   // Clean up audio on unmount
   useEffect(() => {
@@ -224,6 +242,46 @@ Meaning: ${content.keyMeaning}
     }
   }
 
+  const handleGeneratePrayer = async () => {
+    soundEngine.playClick();
+    if (!content.verseReference) return;
+    setIsGeneratingPrayer(true);
+    soundEngine.playProcessingStart();
+    
+    // Use the verse reference and key meaning as the theme/context
+    const theme = `Scripture: ${content.verseReference}. Theme: ${content.keyMeaning || content.explanation}. Context: ${content.simplifiedText}`;
+    
+    try {
+        const prayer = await generateSpiritualPrayer(undefined, theme);
+        if (prayer) {
+            setGeneratedPrayer(prayer);
+            soundEngine.playCelestialChord();
+            setTimeout(() => {
+                const el = document.getElementById('prayer-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+        }
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setIsGeneratingPrayer(false);
+    }
+  };
+
+  const handleCopyPrayer = async () => {
+    soundEngine.playClick();
+    if (generatedPrayer) {
+      try {
+        const textToCopy = `${generatedPrayer.content.text}\n\nAffirmation: ${generatedPrayer.content.affirmation}`;
+        await navigator.clipboard.writeText(textToCopy);
+        setPrayerCopied(true);
+        setTimeout(() => setPrayerCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy prayer', err);
+      }
+    }
+  };
+
   const handlePlayAudio = async () => {
     soundEngine.playClick();
     if (isPlaying) {
@@ -295,6 +353,7 @@ Meaning: ${content.keyMeaning}
         <div className="flex items-center gap-2">
            {onToggleFavorite && (
             <button
+              id="save-verse-button"
               onClick={() => {
                 soundEngine.playClick();
                 onToggleFavorite(content);
@@ -347,8 +406,8 @@ Meaning: ${content.keyMeaning}
       {/* ANALYSIS TAB */}
       {activeTab === 'analysis' && (
         <div className="animate-fade-in space-y-6 md:space-y-8">
-          {/* KJV Text Section */}
-          {content.kjvText && (
+          {/* Main Text Section */}
+          {(content.mainText || content.kjvText) && (
         <div className="animate-fade-in-up delay-100">
           <div className="relative bg-[#0A0C10] border border-[#f2c46d]/20 rounded-xl p-6 md:p-8 text-center overflow-hidden group hover:border-[#f2c46d]/40 transition-colors duration-500 hover:shadow-lg hover:shadow-[#f2c46d]/5">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#f2c46d]/40 to-transparent" />
@@ -367,22 +426,24 @@ Meaning: ${content.keyMeaning}
                  {isLoadingContext ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
                </button>
 
-               {/* Audio Play Button */}
-               <button
-                 onClick={handlePlayAudio}
-                 disabled={isLoadingAudio}
-                 onMouseEnter={() => soundEngine.playHover()}
-                 className={`p-2 rounded-full transition-all duration-300 ${isPlaying ? 'text-pink-400 bg-pink-900/20' : 'text-[#f2c46d]/40 hover:text-pink-400 hover:bg-pink-900/10'}`}
-                 title={isPlaying ? "Stop Reading" : "Listen to Verse"}
-               >
-                  {isLoadingAudio ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : isPlaying ? (
-                    <StopCircle className="w-4 h-4" />
-                  ) : (
-                    <Volume2 className="w-4 h-4" />
-                  )}
-               </button>
+               {/* Audio Play Button - Only if KJV text is available for TTS consistency or if we enable TTS for all */}
+               {content.kjvText && (
+                 <button
+                   onClick={handlePlayAudio}
+                   disabled={isLoadingAudio}
+                   onMouseEnter={() => soundEngine.playHover()}
+                   className={`p-2 rounded-full transition-all duration-300 ${isPlaying ? 'text-pink-400 bg-pink-900/20' : 'text-[#f2c46d]/40 hover:text-pink-400 hover:bg-pink-900/10'}`}
+                   title={isPlaying ? "Stop Reading" : "Listen to Verse"}
+                 >
+                    {isLoadingAudio ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : isPlaying ? (
+                      <StopCircle className="w-4 h-4" />
+                    ) : (
+                      <Volume2 className="w-4 h-4" />
+                    )}
+                 </button>
+               )}
 
                {/* Copy Button */}
                <button
@@ -396,10 +457,18 @@ Meaning: ${content.keyMeaning}
             </div>
             
             <p className="text-xl md:text-2xl text-[#f5f7fb] font-serif italic leading-relaxed relative z-10 font-medium select-text mt-8 md:mt-0">
-              "{content.kjvText}"
+              "{content.mainText || content.kjvText}"
             </p>
             <p className="text-[#f2c46d] text-xs font-bold tracking-[0.2em] mt-6 uppercase opacity-60">
-              King James Version
+              {content.version === 'KJV' ? 'King James Version' : 
+               content.version === 'NIV' ? 'New International Version' :
+               content.version === 'ESV' ? 'English Standard Version' :
+               content.version === 'NKJV' ? 'New King James Version' :
+               content.version === 'NLT' ? 'New Living Translation' :
+               content.version === 'NASB' ? 'New American Standard' :
+               content.version === 'MSG' ? 'The Message' :
+               content.version === 'AMP' ? 'Amplified Bible' :
+               content.version || 'Scripture'}
             </p>
           </div>
 
@@ -571,11 +640,27 @@ Meaning: ${content.keyMeaning}
         {content.comparison && (
           <div className="md:col-span-2 mt-4 mb-4">
              <div className="p-1 rounded-xl bg-gradient-to-br from-teal-900/20 to-transparent border border-teal-900/30">
-               <div className="flex items-center gap-3 mb-6 p-4 border-b border-teal-900/30">
-                <Scale className="w-6 h-6 text-teal-400" />
-                <h3 className="text-xl font-bold text-gray-200">
-                  Comparative Analysis: <span className="text-teal-400">{content.comparison.secondReference}</span>
-                </h3>
+               <div className="flex flex-col gap-4 mb-6 p-4 border-b border-teal-900/30">
+                 <div className="flex items-center gap-3">
+                    <Scale className="w-6 h-6 text-teal-400" />
+                    <h3 className="text-xl font-bold text-gray-200">
+                      Comparative Analysis
+                    </h3>
+                 </div>
+                 
+                 {/* Second Passage Text Display */}
+                 {content.comparison.secondText && (
+                    <div className="bg-[#0A0C10]/50 p-4 rounded-lg border border-teal-900/30 relative group">
+                        <div className="flex justify-between items-start mb-2">
+                             <span className="text-teal-400 font-bold text-sm uppercase tracking-wider">
+                                {content.comparison.secondReference} ({content.comparison.secondVersion || 'Scripture'})
+                             </span>
+                        </div>
+                        <p className="font-serif italic text-gray-300 leading-relaxed">
+                            "{content.comparison.secondText}"
+                        </p>
+                    </div>
+                 )}
               </div>
 
               <div className="grid gap-6 md:grid-cols-2 p-4 pt-0">
@@ -640,7 +725,7 @@ Meaning: ${content.keyMeaning}
               {content.relatedVerses.map((verse, idx) => (
                 <div 
                   key={idx}
-                  onClick={() => onNavigate(verse.reference)}
+                  onClick={() => onNavigate(verse.reference, undefined, content.version)}
                   className="p-4 rounded-xl bg-[#0A0C10] border border-gray-800 hover:border-blue-500/30 hover:bg-blue-900/5 transition-all cursor-pointer group"
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -677,7 +762,7 @@ Meaning: ${content.keyMeaning}
               {content.similarVerses.map((verse, idx) => (
                 <div 
                   key={idx}
-                  onClick={() => onNavigate(verse.reference)}
+                  onClick={() => onNavigate(verse.reference, undefined, content.version)}
                   className="p-4 rounded-xl bg-[#0A0C10] border border-gray-800 hover:border-teal-500/30 hover:bg-teal-900/5 transition-all cursor-pointer group"
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -818,6 +903,69 @@ Meaning: ${content.keyMeaning}
                     </button>
                  </div>
                )}
+            </div>
+
+            {/* 4. Mood-based Prayer Generator */}
+            <div id="prayer-section" className="md:col-span-2 bg-gradient-to-br from-[#0A0C10] to-indigo-950/20 border border-indigo-900/30 rounded-2xl p-6 md:p-8 relative overflow-hidden group">
+               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                 <HandHeart className="w-24 h-24 text-indigo-500" />
+               </div>
+               
+               <div className="relative z-10">
+                 <h4 className="text-xl font-bold text-indigo-100 mb-2 flex items-center gap-2">
+                   <Sparkles className="w-5 h-5 text-indigo-400" />
+                   Divine Prayer Generator
+                 </h4>
+                 <p className="text-indigo-200/60 text-sm mb-6 max-w-lg">
+                   Generate an authoritative, spirit-led prayer based on this scripture and your current mood. Speak reality into being with the voice of Jesus.
+                 </p>
+
+                 {!generatedPrayer ? (
+                   <button
+                     id="generate-prayer-button"
+                     onClick={handleGeneratePrayer}
+                     disabled={isGeneratingPrayer}
+                     className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-indigo-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                   >
+                     {isGeneratingPrayer ? <Loader2 className="w-5 h-5 animate-spin" /> : <HandHeart className="w-5 h-5" />}
+                     <span>Generate Prayer for this Moment</span>
+                   </button>
+                 ) : (
+                   <div className="mt-4 animate-fade-in-up w-full">
+                     <div className="bg-[#0A0C10]/80 border border-indigo-500/30 rounded-xl p-6 relative">
+                        <button
+                          onClick={handleCopyPrayer}
+                          className="absolute top-4 right-4 p-2 text-indigo-400/60 hover:text-indigo-400 transition-colors"
+                          title="Copy Prayer"
+                        >
+                          {prayerCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        </button>
+                        
+                        <div className="mb-6">
+                            <h5 className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-3">The Prayer</h5>
+                            <p className="text-gray-200 text-lg leading-relaxed font-serif italic">
+                                "{generatedPrayer.content.text}"
+                            </p>
+                        </div>
+
+                        <div className="pt-4 border-t border-indigo-500/20">
+                            <h5 className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-2">Affirmation</h5>
+                            <p className="text-indigo-200 font-medium">
+                                {generatedPrayer.content.affirmation}
+                            </p>
+                        </div>
+                     </div>
+                     <div className="mt-4 flex justify-center">
+                        <button 
+                            onClick={() => setGeneratedPrayer(null)}
+                            className="text-xs text-indigo-400 hover:text-indigo-300 underline"
+                        >
+                            Generate New Prayer
+                        </button>
+                     </div>
+                   </div>
+                 )}
+               </div>
             </div>
 
            </div>

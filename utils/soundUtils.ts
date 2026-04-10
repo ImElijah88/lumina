@@ -6,6 +6,7 @@ class SoundEngine {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private enabled: boolean = true;
+  private vibrationEnabled: boolean = true;
 
   constructor() {
     // Lazy init to handle autoplay policies
@@ -42,8 +43,19 @@ class SoundEngine {
     return this.ctx.state === 'running';
   }
 
+  public setEnabled(enabled: boolean) {
+    this.enabled = enabled;
+  }
+
+  public setVibrationEnabled(enabled: boolean) {
+    this.vibrationEnabled = enabled;
+  }
+
   // Soft high-pitched click for buttons
   public async playClick() {
+    if (this.vibrationEnabled && navigator.vibrate) {
+      navigator.vibrate(5);
+    }
     if (!this.enabled) return;
     
     // Click is a user gesture, so we can try to resume
@@ -102,6 +114,9 @@ class SoundEngine {
 
   // A major chord swell for "Success" or "Reveal" events (Ethereal feel)
   public async playCelestialChord() {
+    if (this.vibrationEnabled && navigator.vibrate) {
+      navigator.vibrate([10, 30, 10]);
+    }
     if (!this.enabled) return;
     
     // This is usually triggered by a completion event, which might be async after a click.
@@ -143,6 +158,9 @@ class SoundEngine {
 
   // Futuristic swoosh for processing/analyzing
   public async playProcessingStart() {
+    if (this.vibrationEnabled && navigator.vibrate) {
+      navigator.vibrate(10);
+    }
     if (!this.enabled) return;
     
     const ready = await this.ensureContextReady();

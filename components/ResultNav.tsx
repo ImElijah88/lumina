@@ -18,13 +18,14 @@ export const ResultNav: React.FC<ResultNavProps> = ({ activeTab, onTabChange }) 
   ];
 
   return (
-    <div className="flex justify-center mb-6 sticky top-20 z-30 animate-fade-in-up delay-75 pointer-events-none">
-      <div className="pointer-events-auto flex items-center gap-1 p-1.5 bg-[#0A0C10]/90 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl ring-1 ring-white/5">
+    <div className="flex justify-center mb-6 sticky top-20 z-30 animate-fade-in-up delay-75 pointer-events-none w-full px-2 sm:px-4">
+      <div className="pointer-events-auto flex flex-wrap justify-center items-center gap-1 sm:gap-2 p-1.5 sm:p-2 bg-[#0A0C10]/90 backdrop-blur-xl border border-white/10 rounded-2xl sm:rounded-full shadow-2xl ring-1 ring-white/5 max-w-full">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
+              id={`result-tab-${tab.id}`}
               onClick={() => {
                 if (!isActive) {
                     soundEngine.playClick();
@@ -32,7 +33,7 @@ export const ResultNav: React.FC<ResultNavProps> = ({ activeTab, onTabChange }) 
                 }
               }}
               onMouseEnter={() => soundEngine.playHover()}
-              className={`relative flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300 group overflow-hidden
+              className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium transition-all duration-300 group overflow-hidden shrink-0
                 ${isActive 
                   ? 'bg-gray-800 text-white shadow-lg ring-1 ring-white/10' 
                   : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'

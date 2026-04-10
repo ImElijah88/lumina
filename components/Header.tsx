@@ -5,12 +5,17 @@ interface HeaderProps {
   onHomeClick?: () => void;
   isSidebarOpen?: boolean;
   onToggleSidebar?: () => void;
+  sidebarWidth?: number;
+  windowWidth?: number;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onHomeClick, isSidebarOpen, onToggleSidebar }) => {
+export const Header: React.FC<HeaderProps> = ({ onHomeClick, isSidebarOpen, onToggleSidebar, sidebarWidth = 280, windowWidth = 1024 }) => {
   return (
-    <header className="sticky top-0 z-50 bg-[#050608]/80 backdrop-blur-md border-b border-gray-800/50">
-      <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+    <header 
+      className="sticky top-0 z-50 bg-[#050608]/80 backdrop-blur-md border-b border-gray-800/50 transition-all duration-300"
+      style={{ paddingLeft: isSidebarOpen && windowWidth >= 768 ? `${sidebarWidth}px` : undefined }}
+    >
+      <div className="w-full px-4 md:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button 
             onClick={onToggleSidebar}

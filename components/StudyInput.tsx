@@ -1,30 +1,36 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Sparkles, Scale, X, ScrollText, Mic, MicOff, Loader2 } from 'lucide-react';
+import { Search, Sparkles, Scale, X, ScrollText, Mic, MicOff, Loader2, ChevronDown } from 'lucide-react';
 import { Button } from './ui/Button';
 import { AutocompleteInput } from './ui/AutocompleteInput';
 import { interpretVoiceQuery } from '../services/geminiService';
 import { soundEngine } from '../utils/soundUtils';
+import { BibleVersion } from '../types';
 
 interface StudyInputProps {
-  onAnalyze: (query: string, comparisonQuery?: string, includeKJV?: boolean) => void;
+  onAnalyze: (query: string, comparisonQuery?: string, version?: BibleVersion, comparisonVersion?: BibleVersion) => void;
   isLoading: boolean;
 }
 
-// Declare speech recognition types for TypeScript
-declare global {
-  interface Window {
-    webkitSpeechRecognition: any;
-    SpeechRecognition: any;
-  }
-}
+const BIBLE_VERSIONS: { id: BibleVersion; label: string }[] = [
+  { id: 'KJV', label: 'King James Version' },
+  { id: 'NIV', label: 'New International Version' },
+  { id: 'ESV', label: 'English Standard Version' },
+  { id: 'NKJV', label: 'New King James Version' },
+  { id: 'NLT', label: 'New Living Translation' },
+  { id: 'NASB', label: 'New American Standard' },
+  { id: 'MSG', label: 'The Message' },
+  { id: 'AMP', label: 'Amplified Bible' },
+];
 
 export const StudyInput: React.FC<StudyInputProps> = ({ onAnalyze, isLoading }) => {
   const [query, setQuery] = useState('');
   const [comparisonQuery, setComparisonQuery] = useState('');
   const [showComparison, setShowComparison] = useState(false);
-  const [includeKJV, setIncludeKJV] = useState(true);
   
+  const [version, setVersion] = useState<BibleVersion>('KJV');
+  const [comparisonVersion, setComparisonVersion] = useState<BibleVersion>('KJV');
+
   // Voice Dictation State
   const [isListening, setIsListening] = useState(false);
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
@@ -122,7 +128,12 @@ export const StudyInput: React.FC<StudyInputProps> = ({ onAnalyze, isLoading }) 
     e.preventDefault();
     if (query.trim()) {
       soundEngine.playProcessingStart();
-      onAnalyze(query, showComparison ? comparisonQuery : undefined, includeKJV);
+      onAnalyze(
+        query, 
+        showComparison ? comparisonQuery : undefined, 
+        version,
+        showComparison ? comparisonVersion : undefined
+      );
     }
   };
 
@@ -143,7 +154,7 @@ export const StudyInput: React.FC<StudyInputProps> = ({ onAnalyze, isLoading }) 
       <form onSubmit={handleSubmit} className="relative space-y-4">
         
         {/* Main Input with Autocomplete */}
-        <div className="relative group">
+        <div id="search-input" className="relative group">
           <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-teal-500 rounded-xl opacity-20 group-hover:opacity-40 transition duration-500 blur"></div>
           <div className="relative">
             <AutocompleteInput
@@ -189,18 +200,38 @@ export const StudyInput: React.FC<StudyInputProps> = ({ onAnalyze, isLoading }) 
 
         {/* Comparison Input (Conditional) */}
         {showComparison && (
-          <div className="animate-fade-in">
-             <AutocompleteInput
-              value={comparisonQuery}
-              onChange={(e) => setComparisonQuery(e.target.value)}
-              onSuggestionSelect={handleComparisonSelect}
-              placeholder="Enter second verse to compare (e.g., Romans 5:8)..."
-              disabled={isLoading}
-              icon={<Scale className="h-5 w-5 text-teal-500" />}
-              className="block w-full pr-4 py-4 bg-[#0A0C10] border border-teal-900/50 rounded-xl 
-                       text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50
-                       transition-all duration-300 shadow-lg shadow-black/50"
-            />
+          <div className="animate-fade-in space-y-2">
+             <div className="flex flex-col sm:flex-row gap-2">
+               <div className="flex-grow">
+                 <AutocompleteInput
+                  value={comparisonQuery}
+                  onChange={(e) => setComparisonQuery(e.target.value)}
+                  onSuggestionSelect={handleComparisonSelect}
+                  placeholder="Enter second verse to compare (e.g., Romans 5:8)..."
+                  disabled={isLoading}
+                  icon={<Scale className="h-5 w-5 text-teal-500" />}
+                  className="block w-full pr-4 py-4 bg-[#0A0C10] border border-teal-900/50 rounded-xl 
+                           text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50
+                           transition-all duration-300 shadow-lg shadow-black/50"
+                />
+               </div>
+               
+               {/* Comparison Version Selector */}
+               <div className="relative min-w-[100px] sm:w-auto h-14 sm:h-auto">
+                  <select
+                    value={comparisonVersion}
+                    onChange={(e) => setComparisonVersion(e.target.value as BibleVersion)}
+                    className="w-full h-full appearance-none bg-[#0A0C10] border border-teal-900/50 rounded-xl px-4 py-2 text-sm text-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-500/50 cursor-pointer"
+                  >
+                    {BIBLE_VERSIONS.map(v => (
+                      <option key={v.id} value={v.id} className="bg-gray-900 text-gray-100">
+                        {v.id}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-500 pointer-events-none" />
+               </div>
+             </div>
           </div>
         )}
 
@@ -230,24 +261,27 @@ export const StudyInput: React.FC<StudyInputProps> = ({ onAnalyze, isLoading }) 
               )}
             </button>
 
-            {/* KJV Toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                soundEngine.playClick();
-                setIncludeKJV(!includeKJV);
-              }}
-              onMouseEnter={() => soundEngine.playHover()}
-              className={`text-sm font-medium flex items-center gap-2 transition-all px-3 py-1.5 rounded-full border ${
-                includeKJV 
-                  ? 'bg-[#f2c46d]/10 text-[#f2c46d] border-[#f2c46d]/30 hover:bg-[#f2c46d]/20' 
-                  : 'bg-gray-800/30 text-gray-500 border-gray-700 hover:text-gray-300'
-              }`}
-              disabled={isLoading}
-            >
-              <ScrollText className="w-3.5 h-3.5" />
-              <span>{includeKJV ? 'KJV Included' : 'Include KJV'}</span>
-            </button>
+            {/* Main Version Selector */}
+            <div className="relative">
+               <select
+                 value={version}
+                 onChange={(e) => {
+                   soundEngine.playClick();
+                   setVersion(e.target.value as BibleVersion);
+                 }}
+                 className="appearance-none bg-[#0A0C10] border border-gray-700 text-gray-300 hover:text-white hover:border-gray-600 rounded-xl pl-4 pr-10 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer transition-all"
+                 disabled={isLoading}
+               >
+                 {BIBLE_VERSIONS.map(v => (
+                   <option key={v.id} value={v.id} className="bg-gray-900 text-gray-100">
+                     {v.id} - {v.label}
+                   </option>
+                 ))}
+               </select>
+               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                 <ChevronDown className="w-4 h-4" />
+               </div>
+            </div>
           </div>
 
           <Button 

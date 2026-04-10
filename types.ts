@@ -1,7 +1,11 @@
 
+export type BibleVersion = 'KJV' | 'NIV' | 'ESV' | 'NKJV' | 'NLT' | 'NASB' | 'MSG' | 'AMP';
+
 export interface StudyContent {
   verseReference?: string;
-  kjvText?: string;
+  version?: BibleVersion;
+  kjvText?: string; // Keeping for backward compatibility or specific KJV requests
+  mainText?: string; // The text in the selected version
   simplifiedText?: string;
   originalLanguageText?: string;
   originalLanguageAnalysis?: string;
@@ -11,6 +15,7 @@ export interface StudyContent {
   practicalApplication: string;
   comparison?: {
     secondReference: string;
+    secondVersion?: BibleVersion;
     similarities: string;
     differences: string;
     synthesis: string;
@@ -72,4 +77,15 @@ export interface UserContext {
     uid?: string;
     displayName?: string;
     photoURL?: string;
+}
+
+export type LLMProvider = 'gemini' | 'openai' | 'anthropic';
+
+export interface ModelConfig {
+  id: string;
+  name: string;
+  provider: LLMProvider;
+  apiKey: string;
+  modelId: string;
+  isActive: boolean;
 }

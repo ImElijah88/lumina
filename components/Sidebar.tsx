@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Bookmark, Trash2, Sparkles, X } from 'lucide-react';
+import { Bookmark, Trash2, Sparkles, X, Map } from 'lucide-react';
 import { StudyContent, SavedPrayer } from '../types';
 import { soundEngine } from '../utils/soundUtils';
+import { useGuide } from '../contexts/GuideContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -27,11 +28,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onRemoveFavorite,
   onRemovePrayer
 }) => {
-  const [activeTab, setActiveTab] = useState<'verses' | 'prayers'>('verses');
+  const [activeTab, setActiveTab] = useState<'verses' | 'prayers' | 'guides'>('verses');
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const { availableGuides, startGuide } = useGuide();
 
-  const handleTabChange = (tab: 'verses' | 'prayers') => {
+  const handleTabChange = (tab: 'verses' | 'prayers' | 'guides') => {
     soundEngine.playClick();
     setActiveTab(tab);
   };
@@ -42,8 +44,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       if (!isResizing) return;
       
       let newWidth = e.clientX;
-      if (newWidth < 240) newWidth = 240; // Min width
-      if (newWidth > 600) newWidth = 600; // Max width
+      if (newWidth < 50) newWidth = 50; // Min width
+      if (newWidth > 350) newWidth = 350; // Max width
       
       setWidth(newWidth);
     };
@@ -64,6 +66,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isResizing, setWidth]);
+
+  // Listen for open guides event
+  useEffect(() => {
+    const handleOpenGuides = () => {
+      setIsOpen(true);
+      setActiveTab('guides');
+    };
+    window.addEventListener('open-guides-tab', handleOpenGuides);
+    return () => window.removeEventListener('open-guides-tab', handleOpenGuides);
+  }, [setIsOpen]);
 
   return (
     <>
@@ -115,6 +127,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                  ${activeTab === 'prayers' ? 'border-rose-500 text-rose-500 bg-rose-500/5' : 'border-transparent text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
              >
                 Prayers
+             </button>
+             <button 
+               onClick={() => handleTabChange('guides')}
+               onMouseEnter={() => soundEngine.playHover()}
+               className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all duration-200 border-b-2 
+                 ${activeTab === 'guides' ? 'border-cyan-500 text-cyan-500 bg-cyan-500/5' : 'border-transparent text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
+             >
+                Guides
              </button>
           </div>
 
@@ -212,6 +232,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                   ))
                 )}
+              </div>
+            )}
+
+            {/* GUIDES TAB */}
+            {activeTab === 'guides' && (
+              <div className="space-y-3 animate-fade-in">
+                <div className="mb-4">
+                  <h3 className="text-xs font-bold text-cyan-500 uppercase tracking-wider mb-2">Mission Guides</h3>
+                  <p className="text-[10px] text-gray-400">Select a guide to learn how to use Lumina's features.</p>
+                </div>
+                {availableGuides.map((guide) => (
+                  <div 
+                    key={guide.id}
+                    onClick={() => {
+                      soundEngine.playClick();
+                      startGuide(guide.id);
+                      if (window.innerWidth < 768) setIsOpen(false);
+                    }}
+                    onMouseEnter={() => soundEngine.playHover()}
+                    className="group relative flex flex-col p-3 bg-cyan-950/10 border border-cyan-900/20 rounded-lg hover:bg-cyan-950/20 hover:border-cyan-500/30 hover:shadow-lg hover:shadow-cyan-900/10 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Map className="w-4 h-4 text-cyan-500" />
+                      <span className="text-cyan-200 font-bold text-xs group-hover:text-cyan-100 transition-colors">{guide.title}</span>
+                    </div>
+                    <p className="text-[10px] text-gray-400 group-hover:text-gray-300 transition-colors mt-1">
+                      {guide.description}
+                    </p>
+                  </div>
+                ))}
               </div>
             )}
 

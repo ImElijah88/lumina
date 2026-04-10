@@ -21,11 +21,15 @@ import { SpiritLoader } from './components/ui/SpiritLoader';
 import { analyzePassage, searchScripture } from './services/geminiService';
 import { mockGoogleLogin } from './services/firebaseService';
 import { StudyContent, LoadingState, SearchResultItem, SavedPrayer } from './types';
-import { Book, AlertCircle, WifiOff, ArrowLeft } from 'lucide-react';
+import { Book, AlertCircle, WifiOff, ArrowLeft, Map } from 'lucide-react';
 import { getHistory, saveStudy, getFavorites, toggleFavorite, isFavorited, getSavedPrayers, savePrayer, deletePrayer, UserContext, UserMode } from './utils/storage';
 import { soundEngine } from './utils/soundUtils';
+import { BibleVersion } from './types';
 
-const App: React.FC = () => {
+import { GuideProvider } from './contexts/GuideContext';
+import { GuideOverlay } from './components/ui/GuideOverlay';
+
+const AppContent: React.FC = () => {
   // --- Auth State ---
   const [user, setUser] = useState<UserContext | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -143,7 +147,12 @@ const App: React.FC = () => {
   };
 
   // 1. SEARCH STEP
-  const handleInitialInput = async (query: string, comparisonQuery?: string, includeKJV: boolean = true) => {
+  const handleInitialInput = async (
+    query: string, 
+    comparisonQuery?: string, 
+    version: BibleVersion = 'KJV',
+    comparisonVersion: BibleVersion = 'KJV'
+  ) => {
     soundEngine.playProcessingStart();
     if (!isOnline && user?.mode === 'GOOGLE') {
         // Warn google users if offline
@@ -157,26 +166,31 @@ const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     if (comparisonQuery) {
-      handleAnalyzeStudy(query, comparisonQuery, includeKJV);
+      handleAnalyzeStudy(query, comparisonQuery, version, comparisonVersion);
       return;
     }
 
     try {
       const results = await searchScripture(query);
       if (!results || results.length === 0) {
-        handleAnalyzeStudy(query, undefined, includeKJV);
+        handleAnalyzeStudy(query, undefined, version);
       } else {
         setSearchResults(results);
         setLoadingState(LoadingState.IDLE);
         soundEngine.playCelestialChord();
       }
     } catch (err) {
-      handleAnalyzeStudy(query, undefined, includeKJV);
+      handleAnalyzeStudy(query, undefined, version);
     }
   };
 
   // 2. STUDY STEP
-  const handleAnalyzeStudy = async (query: string, comparisonQuery?: string, includeKJV: boolean = true) => {
+  const handleAnalyzeStudy = async (
+    query: string, 
+    comparisonQuery?: string, 
+    version: BibleVersion = 'KJV',
+    comparisonVersion: BibleVersion = 'KJV'
+  ) => {
     if (!user) return;
     
     setLoadingState(LoadingState.ANALYZING);
@@ -184,7 +198,7 @@ const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     try {
-      const result = await analyzePassage(query, comparisonQuery, includeKJV);
+      const result = await analyzePassage(query, comparisonQuery, version, comparisonVersion);
       setStudyContent(result);
       setLoadingState(LoadingState.SUCCESS);
       soundEngine.playCelestialChord();
@@ -277,6 +291,8 @@ const App: React.FC = () => {
           onHomeClick={clearAll} 
           isSidebarOpen={isSidebarOpen}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          sidebarWidth={sidebarWidth}
+          windowWidth={windowWidth}
         />
         
         {/* Sidebar for Favorites & Prayers */}
@@ -293,7 +309,16 @@ const App: React.FC = () => {
         />
         
         {/* Profile / User Menu */}
-        <div className="absolute top-3.5 right-4 z-50 md:top-4 md:right-8">
+        <div className="absolute top-3.5 right-4 z-50 md:top-4 md:right-8 flex items-center gap-3">
+            <button 
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('open-guides-tab'));
+              }}
+              className="p-2 text-cyan-400 hover:text-cyan-300 bg-cyan-950/30 hover:bg-cyan-900/50 backdrop-blur-md border border-cyan-500/30 rounded-full transition-all duration-300 shadow-[0_0_15px_rgba(6,182,212,0.15)] hover:shadow-[0_0_20px_rgba(6,182,212,0.3)]"
+              title="Mission Guides"
+            >
+              <Map className="w-5 h-5" />
+            </button>
             <UserProfileMenu user={user} onLogout={handleLogout} />
         </div>
         
@@ -399,26 +424,14 @@ const App: React.FC = () => {
 
               <StudyResult 
                 content={studyContent} 
-                onNavigate={(ref) => handleAnalyzeStudy(ref)} 
+                onNavigate={(ref, compRef, ver, compVer) => handleAnalyzeStudy(ref, compRef, ver, compVer)} 
                 isFavorited={isFavorited(studyContent, favorites)}
                 onToggleFavorite={handleToggleFavorite}
               />
             </div>
           ) : (
             <>
-              {!searchResults && history.length === 0 && loadingState === LoadingState.IDLE && (
-                <div className="max-w-xl mx-auto mt-8 text-center p-8 border border-gray-800/50 rounded-2xl bg-[#0A0C10]/50 backdrop-blur-md">
-                  <div className="inline-flex p-4 rounded-full bg-gray-800/50 mb-4">
-                    <Book className="w-8 h-8 text-gray-600" />
-                  </div>
-                  <h3 className="text-gray-300 font-medium mb-2">Start Your Journey</h3>
-                  <p className="text-sm text-gray-500">
-                    Search for any verse, topic, or select a quick discovery above.
-                    <br />
-                    <span className="text-gray-600 mt-2 block">Tip: Use the comparison tool to see how two passages relate.</span>
-                  </p>
-                </div>
-              )}
+
 
               {!searchResults && history.length > 0 && loadingState === LoadingState.IDLE && (
                 <HistoryList history={history} onSelect={handleHistorySelect} />
@@ -430,6 +443,8 @@ const App: React.FC = () => {
         {/* Helper Assistant */}
         <PageAssistant studyContent={studyContent} />
 
+        <GuideOverlay />
+
         <footer 
           className="py-8 border-t border-gray-900/50 mt-auto text-center text-gray-600 text-sm transition-all duration-300 relative z-10 backdrop-blur-sm"
           style={{ paddingLeft: isSidebarOpen && windowWidth >= 768 ? `${sidebarWidth}px` : undefined }}
@@ -438,6 +453,14 @@ const App: React.FC = () => {
         </footer>
       </div>
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <GuideProvider>
+      <AppContent />
+    </GuideProvider>
   );
 };
 

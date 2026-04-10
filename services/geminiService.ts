@@ -1,32 +1,6 @@
-
-import { GoogleGenAI, Type, Schema, Modality, Chat } from "@google/genai";
+import { Type, Schema, Modality, Chat } from "@google/genai";
 import { StudyContent, SearchResultItem, PassageContext, SavedPrayer } from "../types";
-
-// Keys for Local Storage
-const LS_USE_CUSTOM = 'lumina_use_custom_config';
-const LS_API_KEY = 'lumina_custom_api_key';
-const LS_MODEL = 'lumina_custom_model';
-
-// Helper to get the authenticated client dynamically
-const getAIClient = () => {
-  const useCustom = localStorage.getItem(LS_USE_CUSTOM) === 'true';
-  const customKey = localStorage.getItem(LS_API_KEY);
-  
-  // Priority: Custom Key (if enabled) -> Env Key
-  const apiKey = (useCustom && customKey) ? customKey : process.env.API_KEY;
-  
-  return new GoogleGenAI({ apiKey });
-};
-
-// Helper to get the model name dynamically
-const getModelName = (defaultModel: string) => {
-  const useCustom = localStorage.getItem(LS_USE_CUSTOM) === 'true';
-  const customModel = localStorage.getItem(LS_MODEL);
-  
-  // Priority: Custom Model (if enabled) -> Default Model
-  // If custom model is empty string but enabled, fallback to default to avoid crash
-  return (useCustom && customModel && customModel.trim() !== '') ? customModel : defaultModel;
-};
+import { generateContent } from "./llmProvider";
 
 const BASE_SYSTEM_INSTRUCTION = `
 You are an AI assistant specialized in helping users study the Bible accurately and clearly.
@@ -85,7 +59,12 @@ const baseProperties = {
 
 const baseRequired = ["explanation", "simplifiedText", "historicalContext", "keyMeaning", "practicalApplication", "relatedVerses", "similarVerses"];
 
-export const analyzePassage = async (query: string, comparisonQuery?: string, includeKJV: boolean = true): Promise<StudyContent> => {
+export const analyzePassage = async (
+  query: string, 
+  comparisonQuery?: string, 
+  version: string = 'KJV',
+  comparisonVersion: string = 'KJV'
+): Promise<StudyContent> => {
   const isComparison = !!comparisonQuery && comparisonQuery.trim().length > 0;
 
   let systemInstruction = BASE_SYSTEM_INSTRUCTION;
@@ -93,12 +72,22 @@ export const analyzePassage = async (query: string, comparisonQuery?: string, in
   // Create a copy of base properties to modify based on options
   const currentProperties: Record<string, any> = { ...baseProperties };
   
-  if (includeKJV) {
+  // Add main text field for the selected version
+  currentProperties.mainText = {
+    type: Type.STRING,
+    description: `The full text of the passage in the ${version} version.`
+  };
+  currentProperties.version = {
+    type: Type.STRING,
+    description: "The Bible version used for the main text (e.g., KJV, NIV)."
+  };
+
+  // Legacy KJV support (if KJV is selected, populate this too for backward compat)
+  if (version === 'KJV') {
     currentProperties.kjvText = { 
       type: Type.STRING, 
       description: "The full text of the passage in the King James Version (KJV)" 
     };
-    systemInstruction += `\nEnsure 'kjvText' contains the King James Version text of the requested passage.`;
   }
 
   // Add specific instruction for the simplified text with STRICT formatting rules
@@ -117,11 +106,11 @@ export const analyzePassage = async (query: string, comparisonQuery?: string, in
   if (isComparison) {
     systemInstruction += `
     
-    You are also tasked with COMPARING the main passage ("${query}") with a second passage ("${comparisonQuery}").
+    You are also tasked with COMPARING the main passage ("${query}") in ${version} with a second passage ("${comparisonQuery}") in ${comparisonVersion}.
     Provide a comparative analysis highlighting similarities, differences, and a synthesis of how they relate.
     
     Structure your response strictly as a JSON object including the comparison fields.
-    ${includeKJV ? "Ensure 'kjvText' contains the King James Version text of the main passage." : ""}
+    Ensure 'mainText' contains the ${version} text of the main passage.
     Include extensive 'relatedVerses' and 'similarVerses'.
     `;
 
@@ -133,6 +122,8 @@ export const analyzePassage = async (query: string, comparisonQuery?: string, in
           type: Type.OBJECT,
           properties: {
             secondReference: { type: Type.STRING, description: "The reference of the second passage" },
+            secondVersion: { type: Type.STRING, description: "The Bible version of the second passage" },
+            secondText: { type: Type.STRING, description: `The text of the second passage in ${comparisonVersion}` },
             similarities: { type: Type.STRING, description: "Key similarities between the two passages" },
             differences: { type: Type.STRING, description: "Key differences or distinct emphases" },
             synthesis: { type: Type.STRING, description: "A synthesis of how these passages work together" },
@@ -140,12 +131,12 @@ export const analyzePassage = async (query: string, comparisonQuery?: string, in
           required: ["secondReference", "similarities", "differences", "synthesis"],
         },
       },
-      required: [...baseRequired, "comparison"],
+      required: [...baseRequired, "comparison", "mainText"],
     };
   } else {
     systemInstruction += `
     Structure your response strictly as a JSON object containing the standard study fields.
-    ${includeKJV ? "Ensure 'kjvText' contains the King James Version text of the requested passage." : ""}
+    Ensure 'mainText' contains the ${version} text of the requested passage.
     Ensure 'relatedVerses' contains 5-6 strong cross-references.
     Ensure 'similarVerses' contains 3-5 broader thematic connections.
     `;
@@ -153,34 +144,38 @@ export const analyzePassage = async (query: string, comparisonQuery?: string, in
     schema = {
       type: Type.OBJECT,
       properties: currentProperties,
-      required: baseRequired,
+      required: [...baseRequired, "mainText"],
     };
   }
 
   try {
-    const ai = getAIClient();
-    const modelName = getModelName("gemini-3-flash-preview");
-
     const contentQuery = isComparison 
-      ? `Main Passage: ${query}\nSecond Passage for Comparison: ${comparisonQuery}`
-      : query;
+      ? `Main Passage: ${query} (${version})\nSecond Passage for Comparison: ${comparisonQuery} (${comparisonVersion})`
+      : `${query} (${version})`;
 
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: contentQuery,
-      config: {
-        systemInstruction: systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema: schema,
-      },
+    const text = await generateContent({
+      systemInstruction,
+      prompt: contentQuery,
+      schema,
+      defaultModel: "gemini-3-flash-preview"
     });
 
-    const text = response.text;
     if (!text) {
       throw new Error("No content generated");
     }
 
-    return JSON.parse(text) as StudyContent;
+    const result = JSON.parse(text) as StudyContent;
+    
+    // Ensure version fields are populated if model missed them
+    if (!result.version) result.version = version as any;
+    if (result.comparison && !result.comparison.secondVersion) result.comparison.secondVersion = comparisonVersion as any;
+    
+    // Fallback for KJV text if missing in KJV mode
+    if (version === 'KJV' && !result.kjvText && result.mainText) {
+        result.kjvText = result.mainText;
+    }
+
+    return result;
   } catch (error) {
     console.error("Gemini API Error:", error);
     throw error;
@@ -224,19 +219,12 @@ export const searchScripture = async (query: string): Promise<SearchResultItem[]
   };
 
   try {
-    const ai = getAIClient();
-    const modelName = getModelName("gemini-3-flash-preview");
-
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: schema,
-      },
+    const text = await generateContent({
+      prompt,
+      schema,
+      defaultModel: "gemini-3-flash-preview"
     });
 
-    const text = response.text;
     if (!text) return [];
     return JSON.parse(text) as SearchResultItem[];
   } catch (error) {
@@ -263,96 +251,29 @@ export const interpretVoiceQuery = async (rawTranscript: string): Promise<string
   `;
 
   try {
-    const ai = getAIClient();
-    const modelName = getModelName("gemini-3-flash-preview");
-
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
+    const text = await generateContent({
+      prompt,
+      defaultModel: "gemini-3-flash-preview"
     });
-
-    const text = response.text;
-    return text ? text.trim() : rawTranscript;
+    return text.trim();
   } catch (error) {
     console.error("Voice interpretation failed", error);
-    return rawTranscript;
+    return rawTranscript; // Fallback to raw if it fails
   }
 };
 
 /**
- * GET DAILY VERSE REFERENCE
- * Fetches a single verse reference relevant to today's date.
+ * Gets the surrounding context for a specific verse.
  */
-export const getDailyVerseReference = async (): Promise<string> => {
-  const today = new Date();
-  const dateString = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  
+export const getPassageContext = async (reference: string): Promise<PassageContext> => {
   const prompt = `
-  Today is ${dateString}.
-  Select a single, meaningful Bible verse reference that aligns with this time of year, history, or general daily encouragement.
-  Examples: "Psalm 118:24", "Isaiah 43:19", "Luke 2:10" (if Christmas), etc.
-  Return ONLY the verse reference string. No text, no explanation.
-  `;
-
-  try {
-    const ai = getAIClient();
-    const modelName = getModelName("gemini-3-flash-preview");
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
-    });
-    return response.text?.trim() || "Psalm 119:105";
-  } catch (e) {
-    console.error(e);
-    return "Psalm 119:105"; // Fallback
-  }
-}
-
-/**
- * GENERATE SPEECH (TTS)
- */
-export const generateSpeech = async (text: string, voiceName: string = 'Kore'): Promise<string | null> => {
-  try {
-    const ai = getAIClient();
-    // Use the specific TTS model
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-tts',
-      contents: { parts: [{ text }] },
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-            voiceConfig: {
-                prebuiltVoiceConfig: { voiceName }
-            }
-        }
-      }
-    });
-
-    // The API returns base64 encoded audio in the response
-    const base64 = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    return base64 || null;
-  } catch (e) {
-    console.error("TTS generation failed", e);
-    return null;
-  }
-};
-
-/**
- * GET PASSAGE CONTEXT
- * Fetches surrounding verses and a narrative summary.
- */
-export const getPassageContext = async (reference: string): Promise<PassageContext | null> => {
-  const prompt = `
-  For the Bible passage "${reference}":
-  1. Provide the 2-3 verses IMMEDIATELY PRECEDING it (KJV).
-  2. Provide the 2-3 verses IMMEDIATELY FOLLOWING it (KJV).
-  3. Provide a brief 1-sentence narrative explanation of what is happening in this specific section.
-  4. Provide a detailed "Historical & Verification Analysis" (approx 3-4 sentences). 
-     - Mention what was happening historically/politically at that time.
-     - Mention social conditions relevant to the text.
-     - Mention if this event/figure is verified by extra-biblical sources (e.g., Josephus, Roman records, archaeology) or fits known history.
+  Provide the biblical context for "${reference}".
   
-  Output as JSON.
+  Return a JSON object with:
+  - 'before': The preceding verse(s) (reference and text).
+  - 'after': The following verse(s) (reference and text).
+  - 'narrative': A brief explanation of what is happening in this specific chapter/scene.
+  - 'historicalAnalysis': A brief note on the historical or cultural setting of this moment.
   `;
 
   const schema: Schema = {
@@ -360,248 +281,433 @@ export const getPassageContext = async (reference: string): Promise<PassageConte
     properties: {
       before: {
         type: Type.OBJECT,
-        properties: {
-          reference: { type: Type.STRING, description: "e.g. 'John 3:13-15'" },
-          text: { type: Type.STRING, description: "The text of these preceding verses (KJV)" }
-        },
+        properties: { reference: { type: Type.STRING }, text: { type: Type.STRING } },
         required: ["reference", "text"]
       },
       after: {
         type: Type.OBJECT,
-        properties: {
-          reference: { type: Type.STRING, description: "e.g. 'John 3:22-24'" },
-          text: { type: Type.STRING, description: "The text of these following verses (KJV)" }
-        },
+        properties: { reference: { type: Type.STRING }, text: { type: Type.STRING } },
         required: ["reference", "text"]
       },
-      narrative: { type: Type.STRING, description: "What leads to this moment?" },
-      historicalAnalysis: { 
-        type: Type.STRING, 
-        description: "Historical context, social conditions, and extra-biblical verification if available." 
-      }
+      narrative: { type: Type.STRING },
+      historicalAnalysis: { type: Type.STRING }
     },
     required: ["before", "after", "narrative", "historicalAnalysis"]
   };
 
   try {
-    const ai = getAIClient();
-    const modelName = getModelName("gemini-3-flash-preview");
-
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: schema,
-      },
+    const text = await generateContent({
+      prompt,
+      schema,
+      defaultModel: "gemini-3-flash-preview"
     });
-
-    const text = response.text;
-    if (!text) return null;
     return JSON.parse(text) as PassageContext;
   } catch (error) {
     console.error("Context fetch failed", error);
-    return null;
-  }
-};
-
-export const generateBiblicalArt = async (verse: string, context: string): Promise<string | null> => {
-  try {
-    const ai = getAIClient();
-    const modelName = getModelName("gemini-2.5-flash-image");
-
-    const prompt = `
-    **Role**: You are a world-class Cinematic Concept Artist.
-    **Task**: Create a photorealistic, emotionally charged masterpiece for a "Legendary Trading Card" illustrating: "${verse}".
-    **Context**: ${context}
-
-    **Visual Direction (2026 Reality)**:
-    1.  **Setting**: A grounded, near-future world (Year 2026). Use realistic modern environments (bustling cyber-cities, quiet smart-homes, nature reclaiming urban spaces) rather than abstract fantasy.
-    2.  **Metaphor**: Translate the spiritual concept into a relatable human situation. 
-        - Example: For "protection", show a figure walking confidently through a chaotic, rain-slicked neon street, shielded by an unseen warmth.
-        - Example: For "peace", show someone finding silence in a high-tech, busy transit hub.
-    3.  **Characters**: Diverse ethnicity, wearing distinct modern-future fashion (streetwear, tech-wear). Focus intensely on facial emotion and body language.
-    4.  **Atmosphere**: Cinematic lighting, volumetric fog, lens flares, high contrast. Make it feel epic and significant.
-    
-    **Strict Constraints**: NO TEXT, NO WORDS, NO WATERMARKS.
-    `;
-
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: {
-        parts: [{ text: prompt }],
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "3:4", 
-        }
-      }
-    });
-
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-      }
-    }
-    return null;
-  } catch (e) {
-    console.error("Image generation failed", e);
-    return null;
-  }
-};
-
-export const generateExternalArtPrompt = async (verse: string, context: string): Promise<string> => {
-  const strategyInstruction = `
-  You are an **Expert Visual Prompt Engineer**.
-  Input Verse: "${verse}"
-  Context: "${context}"
-  Output a concise Midjourney prompt.
-  `;
-
-  try {
-    const ai = getAIClient();
-    const modelName = getModelName("gemini-3-flash-preview");
-
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: strategyInstruction,
-    });
-
-    return response.text?.trim() || "Could not generate prompt.";
-  } catch (error) {
-    console.error("External prompt generation failed", error);
     throw error;
   }
-}
-
-export const generateScript = async (verse: string, context: string): Promise<string> => {
-    const instruction = `
-    You are an Award-Winning Screenwriter.
-    Write a short screenplay scene based on: "${verse}".
-    Context: "${context}"
-    Use industry standard formatting.
-    `;
-  
-    try {
-      const ai = getAIClient();
-      const modelName = getModelName("gemini-3-flash-preview");
-
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: instruction,
-      });
-  
-      return response.text || "Could not generate script.";
-    } catch (error) {
-      console.error("Script generation failed", error);
-      throw error;
-    }
-  }
-
-export const createChatSession = (context?: StudyContent): Chat => {
-  const ai = getAIClient();
-  const modelName = getModelName("gemini-3-flash-preview");
-
-  let systemInstruction = `
-  You are 'Lumina', a helpful and wise Bible study assistant. 
-  Your goal is to help the user understand the Bible passage they are currently studying.
-  
-  Tone: Warm, encouraging, scholarly but accessible.
-  `;
-
-  if (context) {
-    systemInstruction += `
-    
-    CURRENT STUDY CONTEXT:
-    The user is looking at an analysis of: ${context.verseReference || "Unknown Passage"}
-    
-    Here is the detailed content on the page:
-    ${JSON.stringify(context)}
-    
-    INSTRUCTIONS:
-    1. Answer questions specifically about this content.
-    2. Define terms found in the text (e.g., if the text mentions "Mammon", explain it).
-    3. If the user asks for clarification on the "Historical Context" or "Key Meaning" provided, explain it further.
-    4. You can bring in outside biblical knowledge to support your answers.
-    5. Keep answers concise (under 150 words) unless asked for more detail.
-    `;
-  }
-
-  return ai.chats.create({
-    model: modelName,
-    config: {
-      systemInstruction: systemInstruction,
-    },
-  });
 };
 
 /**
- * GENERATE SPIRITUAL PRAYER (New Module)
+ * Generates a personalized prayer based on the study content.
  */
-export const generateSpiritualPrayer = async (characterName?: string, theme?: string): Promise<SavedPrayer | null> => {
+export const generatePrayer = async (
+  studyContent: StudyContent, 
+  character: string, 
+  scenario: string
+): Promise<SavedPrayer> => {
   const prompt = `
-  Generate a unique, spiritually profound prayer based on the Bible character: "${characterName || "a random biblical figure"}" and the theme: "${theme || "a relevant spiritual theme"}".
+  You are a spiritual guide crafting a deeply personal, empathetic, and powerful prayer.
   
-  Your goal is to create a "United Holy Prayer".
+  Context (What the user just studied):
+  Passage: ${studyContent.verseReference}
+  Meaning: ${studyContent.keyMeaning}
+  Application: ${studyContent.practicalApplication}
   
-  INTERNAL LOGIC (Do NOT label these steps in the output):
-  1. **Anchor**: Start with awe of God, referencing how He helped this character or His nature in that context.
-  2. **Alignment**: Link the specific need/feeling to a greater divine purpose or growth, focusing on the theme of ${theme || "spiritual growth"}.
-  3. **Surrender**: State the request boldly, but end with releasing control ("Your will be done").
-  4. **Persistence**: A sense of ongoing trust.
-
-  OUTPUT INSTRUCTIONS:
-  - You must use "${characterName || "a random biblical figure"}" as the source of inspiration.
-  - The prayer MUST focus on the theme: "${theme || "general spiritual well-being"}".
-  - Select a plausible feeling/scenario relevant to the modern human experience that aligns with ${characterName ? characterName + "'s" : "their"} specific biblical story (e.g. if Noah, maybe 'patience during long waits'; if Esther, 'courage for a specific moment').
-  - **'text'**: Write the prayer as ONE continuous, beautiful, flowing paragraph. It should move naturally from awe to request to surrender. DO NOT add headers like "Anchor:" or "Surrender:". Make it feel like a heartfelt conversation with the Divine.
-  - **'affirmation'**: Extract a short, powerful, single-sentence affirmation or mantra from this prayer that the user can repeat throughout the day (e.g. "I walk in faith, not by sight.").
-
-  Output strictly JSON.
+  User Persona:
+  Character/Role: ${character}
+  Current Scenario/Struggle: ${scenario}
+  
+  Task:
+  Write a prayer that connects the biblical truth they just studied to their specific, current life situation.
+  
+  Guidelines:
+  - The tone should be authentic, vulnerable, and hopeful.
+  - Do NOT use religious jargon or clichés. Speak like a real person talking to God.
+  - Acknowledge the specific pain or challenge in their "Scenario".
+  - Use the truth from the "Passage" as the anchor of hope.
+  - Keep it concise but impactful (about 4-6 sentences).
+  
+  Output strictly as a JSON object with:
+  - 'text': The actual prayer.
+  - 'affirmation': A short, powerful, 1-sentence mantra or affirmation derived from the prayer that they can repeat to themselves throughout the day.
   `;
 
   const schema: Schema = {
     type: Type.OBJECT,
     properties: {
-      character: { type: Type.STRING, description: "The Bible character selected" },
-      scenario: { type: Type.STRING, description: "The scenario or feeling being addressed" },
-      content: {
-        type: Type.OBJECT,
-        properties: {
-          text: { type: Type.STRING, description: "The unified, flowing prayer text." },
-          affirmation: { type: Type.STRING, description: "A short, repeatable daily affirmation." }
-        },
-        required: ["text", "affirmation"]
-      }
+      text: { type: Type.STRING },
+      affirmation: { type: Type.STRING }
     },
-    required: ["character", "scenario", "content"]
+    required: ["text", "affirmation"]
   };
 
   try {
-    const ai = getAIClient();
-    const modelName = getModelName("gemini-3-flash-preview");
-
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: schema,
-      },
+    const text = await generateContent({
+      prompt,
+      schema,
+      defaultModel: "gemini-3-flash-preview"
     });
 
-    const text = response.text;
-    if (!text) return null;
+    const result = JSON.parse(text);
     
-    const parsed = JSON.parse(text);
-    // Add client-side ID and timestamp
     return {
-        id: crypto.randomUUID(),
-        timestamp: Date.now(),
-        theme: theme,
-        ...parsed
+      id: Date.now().toString(),
+      timestamp: Date.now(),
+      character,
+      scenario,
+      content: {
+        text: result.text,
+        affirmation: result.affirmation
+      }
     };
+  } catch (error) {
+    console.error("Prayer generation failed", error);
+    throw error;
+  }
+};
 
+/**
+ * Generates an engaging story based on a biblical character or theme.
+ */
+export const generateStory = async (
+  topic: string,
+  style: string
+): Promise<{ title: string; content: string; moral: string }> => {
+  const prompt = `
+  You are a master storyteller, like C.S. Lewis or Tolkien, but writing a biblical narrative.
+  
+  Topic/Character: ${topic}
+  Narrative Style: ${style}
+  
+  Task:
+  Write a captivating, immersive short story based on this biblical topic.
+  
+  Guidelines:
+  - If the style is "First-Person", write from the perspective of the character.
+  - If the style is "Cinematic", focus on sensory details, atmosphere, and dramatic tension.
+  - If the style is "Historical Fiction", weave in accurate cultural details of the time.
+  - The story should be engaging, emotional, and vivid.
+  - Do NOT just summarize the Bible story. Bring it to life.
+  - Keep it to about 3-4 paragraphs.
+  
+  Output strictly as a JSON object with:
+  - 'title': A creative, engaging title for the story.
+  - 'content': The story text itself (use paragraphs, but no markdown).
+  - 'moral': A 1-sentence takeaway or spiritual truth from the story.
+  `;
+
+  const schema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      title: { type: Type.STRING },
+      content: { type: Type.STRING },
+      moral: { type: Type.STRING }
+    },
+    required: ["title", "content", "moral"]
+  };
+
+  try {
+    const text = await generateContent({
+      prompt,
+      schema,
+      defaultModel: "gemini-3-flash-preview"
+    });
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("Story generation failed", error);
+    throw error;
+  }
+};
+
+/**
+ * Generates an answer to a specific question about the current study content.
+ */
+export const answerQuestion = async (
+  question: string,
+  context: StudyContent
+): Promise<string> => {
+  const prompt = `
+  You are a wise, empathetic, and knowledgeable biblical scholar.
+  
+  The user is currently studying: ${context.verseReference}
+  Passage Text: "${context.mainText}"
+  
+  The user has asked this question: "${question}"
+  
+  Task:
+  Answer the user's question directly, clearly, and thoughtfully.
+  
+  Guidelines:
+  - Base your answer on the provided passage context.
+  - If the question is broader than the passage, you may bring in other biblical principles, but tie it back to what they are studying.
+  - Keep the tone conversational, encouraging, and insightful.
+  - Do not use markdown formatting (like bolding or lists), just return plain text paragraphs.
+  `;
+
+  try {
+    const text = await generateContent({
+      prompt,
+      defaultModel: "gemini-3-flash-preview"
+    });
+    return text.trim();
+  } catch (error) {
+    console.error("Answering question failed", error);
+    throw error;
+  }
+};
+
+/**
+ * Generates a "Quick Gem" - a short, impactful insight based on a mood or topic.
+ */
+export const generateQuickGem = async (
+  topic: string
+): Promise<{ reference: string; text: string; insight: string }> => {
+  const prompt = `
+  You are providing a "Quick Gem" of biblical wisdom.
+  
+  Topic/Mood: ${topic}
+  
+  Task:
+  Select a powerful, lesser-known, or deeply impactful Bible verse related to this topic.
+  
+  Output strictly as a JSON object with:
+  - 'reference': The verse reference (e.g., "Zephaniah 3:17").
+  - 'text': The text of the verse (NIV or ESV preferred for readability).
+  - 'insight': A 1-2 sentence profound, encouraging insight about what this meaning for the user right now.
+  `;
+
+  const schema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      reference: { type: Type.STRING },
+      text: { type: Type.STRING },
+      insight: { type: Type.STRING }
+    },
+    required: ["reference", "text", "insight"]
+  };
+
+  try {
+    const text = await generateContent({
+      prompt,
+      schema,
+      defaultModel: "gemini-3-flash-preview"
+    });
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("Quick Gem generation failed", error);
+    throw error;
+  }
+};
+
+// Helper to get the authenticated client dynamically for Gemini-specific features
+const getGeminiClient = () => {
+  const activeConfig = getActiveModelConfig();
+  // If the active config is Gemini, use its key, otherwise fallback to env
+  const apiKey = (activeConfig && activeConfig.provider === 'gemini') 
+    ? activeConfig.apiKey 
+    : process.env.GEMINI_API_KEY || process.env.API_KEY;
+  return new GoogleGenAI({ apiKey: apiKey as string });
+};
+
+export const getDailyVerseReference = async (): Promise<string> => {
+  const prompt = `
+  You are a spiritual guide. Select a single, powerful Bible verse for today's "Verse of the Day".
+  It should be encouraging, challenging, or deeply insightful.
+  
+  Output ONLY the verse reference (e.g., "John 3:16" or "Psalm 23:1-3"). Do not include the text or any other words.
+  `;
+  
+  try {
+    const text = await generateContent({
+      prompt,
+      defaultModel: "gemini-3-flash-preview"
+    });
+    return text.trim();
+  } catch (error) {
+    console.error("Daily verse generation failed", error);
+    return "Psalm 118:24"; // Fallback
+  }
+};
+
+export const generateBiblicalArt = async (reference: string, context: string): Promise<string | null> => {
+  try {
+    const ai = getGeminiClient();
+    const prompt = `Create a beautiful, cinematic, and historically accurate biblical illustration for ${reference}. Context: ${context}. The style should be like a classic oil painting or high-end concept art, dramatic lighting, respectful and awe-inspiring.`;
+    
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.1-flash-image-preview',
+      contents: prompt,
+      config: {
+        imageConfig: {
+          aspectRatio: "16:9",
+          imageSize: "1K"
+        }
+      }
+    });
+    
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        return `data:image/jpeg;base64,${part.inlineData.data}`;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error("Art generation failed", error);
+    return null;
+  }
+};
+
+export const generateExternalArtPrompt = async (reference: string, context: string): Promise<string> => {
+  const prompt = `
+  You are an expert AI image generation prompt engineer (for Midjourney/DALL-E).
+  Create a highly detailed, comma-separated prompt for the biblical passage: ${reference}.
+  Context: ${context}.
+  
+  Include: subject, action, environment, lighting, camera angle, and artistic style (e.g., cinematic, dramatic lighting, 8k resolution, masterpiece).
+  Do not include any intro or outro text, just the prompt itself.
+  `;
+  
+  try {
+    const text = await generateContent({
+      prompt,
+      defaultModel: "gemini-3-flash-preview"
+    });
+    return text.trim();
+  } catch (error) {
+    console.error("Prompt generation failed", error);
+    return `Cinematic biblical scene of ${reference}, dramatic lighting, masterpiece, 8k, highly detailed`;
+  }
+};
+
+export const generateScript = async (reference: string, context: string): Promise<string> => {
+  const prompt = `
+  Write a short, engaging video script (like a YouTube Short or TikTok) about this biblical passage: ${reference}.
+  Context: ${context}.
+  
+  Include:
+  - A strong hook (first 3 seconds)
+  - The core message
+  - A practical takeaway
+  - Visual cues in brackets like [Show dramatic landscape]
+  
+  Keep it under 60 seconds when spoken.
+  `;
+  
+  try {
+    const text = await generateContent({
+      prompt,
+      defaultModel: "gemini-3-flash-preview"
+    });
+    return text.trim();
+  } catch (error) {
+    console.error("Script generation failed", error);
+    return "Failed to generate script.";
+  }
+};
+
+export const createChatSession = (context: StudyContent): Chat => {
+  const ai = getGeminiClient();
+  const systemInstruction = `
+  You are an expert biblical scholar and empathetic guide.
+  The user is currently studying: ${context.verseReference}
+  Passage Text: "${context.mainText}"
+  Key Meaning: "${context.keyMeaning}"
+  
+  Answer their questions based on this context. Keep answers concise, conversational, and helpful.
+  Do not use markdown formatting (like bolding or lists), just return plain text paragraphs.
+  `;
+  
+  return ai.chats.create({
+    model: "gemini-3-flash-preview",
+    config: {
+      systemInstruction
+    }
+  });
+};
+
+export const generateSpeech = async (text: string, voice: string): Promise<string | null> => {
+  try {
+    const ai = getGeminiClient();
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: text,
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: voice || 'Kore' }
+          }
+        }
+      }
+    });
+    
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    return base64Audio || null;
+  } catch (error) {
+    console.error("Speech generation failed", error);
+    return null;
+  }
+};
+
+export const generateSpiritualPrayer = async (character?: string, theme?: string): Promise<SavedPrayer | null> => {
+  const prompt = `
+  You are a spiritual guide crafting a deeply personal, empathetic, and powerful prayer.
+  
+  ${character ? `User Persona/Character: ${character}` : ''}
+  ${theme ? `Theme/Context: ${theme}` : ''}
+  
+  Task:
+  Write a prayer that connects biblical truth to a specific life situation.
+  
+  Guidelines:
+  - The tone should be authentic, vulnerable, and hopeful.
+  - Do NOT use religious jargon or clichés. Speak like a real person talking to God.
+  - Keep it concise but impactful (about 4-6 sentences).
+  
+  Output strictly as a JSON object with:
+  - 'text': The actual prayer.
+  - 'affirmation': A short, powerful, 1-sentence mantra or affirmation derived from the prayer that they can repeat to themselves throughout the day.
+  `;
+
+  const schema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      text: { type: Type.STRING },
+      affirmation: { type: Type.STRING }
+    },
+    required: ["text", "affirmation"]
+  };
+
+  try {
+    const text = await generateContent({
+      prompt,
+      schema,
+      defaultModel: "gemini-3-flash-preview"
+    });
+
+    const result = JSON.parse(text);
+    
+    return {
+      id: Date.now().toString(),
+      timestamp: Date.now(),
+      character: character || 'Seeker',
+      scenario: theme || 'General',
+      content: {
+        text: result.text,
+        affirmation: result.affirmation
+      }
+    };
   } catch (error) {
     console.error("Prayer generation failed", error);
     return null;

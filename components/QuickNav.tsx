@@ -19,8 +19,8 @@ export const QuickNav: React.FC<QuickNavProps> = ({ activeTab, onTabChange }) =>
   ];
 
   return (
-    <div className="flex justify-center mb-8 sticky top-20 z-30 animate-fade-in-up delay-75 pointer-events-none">
-      <div className="pointer-events-auto flex items-center gap-1 p-1.5 bg-[#0A0C10]/90 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl ring-1 ring-white/5">
+    <div id="quick-nav-tabs" className="flex justify-center mb-8 sticky top-20 z-30 animate-fade-in-up delay-75 pointer-events-none w-full px-2 sm:px-4">
+      <div className="pointer-events-auto flex flex-wrap justify-center items-center gap-2 sm:gap-3 p-1.5 sm:p-2 bg-[#0A0C10]/90 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl ring-1 ring-white/5 max-w-full">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -33,21 +33,22 @@ export const QuickNav: React.FC<QuickNavProps> = ({ activeTab, onTabChange }) =>
                 }
               }}
               onMouseEnter={() => soundEngine.playHover()}
-              className={`relative flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300 group overflow-hidden
+              className={`relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full transition-all duration-300 group shrink-0
                 ${isActive 
                   ? 'bg-gray-800 text-white shadow-lg ring-1 ring-white/10' 
                   : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
                 }`}
             >
-              <tab.icon className={`w-4 h-4 transition-colors ${isActive ? tab.color : 'text-gray-500 group-hover:text-gray-300'}`} />
+              <tab.icon className={`w-5 h-5 transition-colors ${isActive ? tab.color : 'text-gray-500 group-hover:text-gray-300'}`} />
               
-              <span className={`whitespace-nowrap transition-all duration-300 ${isActive ? 'max-w-[150px] opacity-100 ml-1' : 'max-w-0 opacity-0 md:max-w-[150px] md:opacity-70 md:group-hover:opacity-100 md:ml-1'}`}>
+              {/* Custom Tooltip */}
+              <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1.5 bg-gray-900 text-gray-200 text-xs font-medium rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl border border-gray-800">
                 {tab.label}
-              </span>
+              </div>
               
               {/* Active Indicator Dot */}
               {isActive && (
-                <span className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full shadow-[0_0_8px_currentColor] animate-pulse ${tab.color.replace('text-', 'bg-')}`}></span>
+                <span className={`absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full shadow-[0_0_8px_currentColor] animate-pulse ${tab.color.replace('text-', 'bg-')}`}></span>
               )}
             </button>
           );
